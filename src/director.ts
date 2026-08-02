@@ -1,0 +1,251 @@
+import * as THREE from 'three'
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import { viewCam, canvas, tmpMat, tmpQuat, tmpVecA, tmpVecB, MODEL_HEIGHT } from './engine.ts'
+import { flyers } from './flyers.ts'
+import { setDeckVisibility } from './deck.ts'
+
+// ---------------------------------------------------------------------------
+// camera director — always following SOME rig. It dwells on one, then drifts
+// on its own way until it comes across another rig and picks that one up.
+// The user can grab the scene at any time; on release the camera coasts off
+// and resumes the hunt. No buttons.
+// ---------------------------------------------------------------------------
+
+type CamState = 'follow' | 'blend' | 'drag' | 'wander' | 'scroll'
+
+const FOLLOW_SECONDS = 16 // dwell time on each rig
+const WANDER_MAX_SECONDS = 14 // failsafe: never drift longer than this
+const RIG_IGNORE_MS = 7000 // after leaving a rig, don't re-acquire it instantly
+const ENCOUNTER_DIST = 1.5 // how close a drift must pass to count as "came across"
+const WANDER_SPEED = 0.85
+const BLEND_SECONDS = 1.6 // transition duration when acquiring a rig
+
+const modeChip = document.querySelector<HTMLDivElement>('#mode-chip')!
+
+let camState: CamState = 'follow'
+let followTimer = 0
+let wanderTimer = 0
+let blendT = 0
+const blendFromPos = new THREE.Vector3()
+const blendFromQuat = new THREE.Quaternion()
+const wanderVel = new THREE.Vector3()
+const prevCamPos = new THREE.Vector3()
+const rigIgnoreUntil = new Map<number, number>()
+let followIndex = 0 // which flyer the view cam chases
+let povIndex = -1 // the face-mounted glasses rig (resolved after setup)
+
+const controls = new OrbitControls(viewCam, canvas)
+controls.enableDamping = true
+controls.dampingFactor = 0.06
+controls.enablePan = false
+controls.minDistance = 0.6
+controls.maxDistance = 9
+controls.target.set(0, MODEL_HEIGHT * 0.55, 0)
+controls.enabled = true // always on — the director yields to it in 'drag'
+
+function chip(text: string) {
+  modeChip.textContent = text
+}
+
+export function enterFollow(idx: number) {
+  followIndex = idx
+  camState = 'follow'
+  followTimer = 0
+  chip(`FOLLOWING ${flyers[idx].def.label}`)
+}
+
+function blendToRig(idx: number) {
+  blendFromPos.copy(viewCam.position)
+  blendFromQuat.copy(viewCam.quaternion)
+  blendT = 0
+  followIndex = idx
+  camState = 'blend'
+  chip(`ACQUIRING ${flyers[idx].def.label}`)
+}
+
+/** sideways push that keeps a drifting camera orbiting the figure */
+function tangentialAt(p: THREE.Vector3, out: THREE.Vector3) {
+  const radial = new THREE.Vector3(p.x, 0, p.z)
+  if (radial.lengthSq() < 1e-4) radial.set(0, 0, 1)
+  radial.normalize()
+  return out.set(-radial.z, 0.12, radial.x).normalize().multiplyScalar(WANDER_SPEED)
+}
+
+function enterWander(seed?: THREE.Vector3) {
+  rigIgnoreUntil.set(followIndex, performance.now() + RIG_IGNORE_MS)
+  camState = 'wander'
+  wanderTimer = 0
+  if (seed && seed.lengthSq() > 1e-6) {
+    wanderVel.copy(seed).clampLength(0.4, WANDER_SPEED * 1.4)
+  } else {
+    tangentialAt(viewCam.position, wanderVel)
+  }
+  chip('DRIFTING')
+}
+
+/** resolve the face-mounted glasses rig once the fleet is built */
+export function resolvePov() {
+  povIndex = flyers.findIndex((f) => f.pov)
+}
+
+controls.addEventListener('start', () => {
+  controls.target.set(0, MODEL_HEIGHT * 0.55, 0)
+  camState = 'drag'
+  chip('MANUAL CONTROL')
+})
+controls.addEventListener('end', () => {
+  // hand the camera's last motion to the wanderer and let it coast
+  enterWander(viewCam.position.clone().sub(prevCamPos).multiplyScalar(20))
+})
+
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'c') blendToRig((followIndex + 1) % flyers.length) // skip to next rig
+})
+
+// ---------------------------------------------------------------------------
+// scroll story — scrolling guides the camera to joe's face, then through his
+// eye into the glasses POV, and the next section slides over that as the wipe
+// ---------------------------------------------------------------------------
+
+const trackEl = document.querySelector<HTMLDivElement>('.scroll-track')!
+let scrollP = 0
+const scrollEntryPos = new THREE.Vector3()
+const scrollEntryQuat = new THREE.Quaternion()
+
+window.addEventListener(
+  'scroll',
+  () => {
+    const range = trackEl.offsetHeight - window.innerHeight
+    scrollP = range > 0 ? Math.min(Math.max(window.scrollY / range, 0), 1) : 0
+  },
+  { passive: true },
+)
+
+const smooth01 = (t: number) => {
+  t = Math.min(Math.max(t, 0), 1)
+  return t * t * (3 - 2 * t)
+}
+
+// debug: ?scroll=0.75 jumps to a scroll-story position on load
+const debugScroll = new URLSearchParams(location.search).has('scroll')
+if (debugScroll) {
+  const p = new URLSearchParams(location.search).get('scroll')!
+  window.addEventListener('load', () => {
+    const range = trackEl.offsetHeight - window.innerHeight
+    window.scrollTo(0, parseFloat(p) * range)
+  })
+}
+
+// ---------------------------------------------------------------------------
+// per-frame update
+// ---------------------------------------------------------------------------
+
+const easeInOut = (t: number) => t * t * (3 - 2 * t)
+
+export function updateViewCam(dt: number, elapsed: number) {
+  const followed = flyers[followIndex]
+  const pov = flyers[povIndex]
+
+  // scroll story takes the camera when the page scrolls, hands it back at top
+  if (scrollP > 0.02 && camState !== 'scroll') {
+    scrollEntryPos.copy(viewCam.position)
+    scrollEntryQuat.copy(viewCam.quaternion)
+    camState = 'scroll'
+    controls.enabled = false
+  } else if (scrollP <= 0.02 && camState === 'scroll') {
+    controls.enabled = true
+    blendToRig(followIndex)
+  }
+
+  // deck rides the scroll: slides in early, exits as we enter his head
+  const deckVis = smooth01((scrollP - 0.04) / 0.08) * (1 - smooth01((scrollP - 0.55) / 0.15))
+  setDeckVisibility(deckVis)
+
+  // handheld micro-shake, only while locked onto a rig
+  const shake = new THREE.Quaternion().setFromEuler(
+    new THREE.Euler(
+      Math.sin(elapsed * 0.9) * 0.006 + Math.sin(elapsed * 2.3) * 0.002,
+      Math.cos(elapsed * 0.7) * 0.006,
+      Math.sin(elapsed * 0.5) * 0.004,
+    ),
+  )
+  const rideQuat = followed.chaseQuat.clone().multiply(shake)
+
+  if (camState === 'scroll') {
+    // phase 1: glide from wherever we were to just in front of his face
+    // phase 2: pass through his eye — the viewport becomes the glasses feed
+    const fwd = tmpVecA.set(0, 0, -1).applyQuaternion(pov.quat)
+    const approach = tmpVecB.copy(pov.pos).addScaledVector(fwd, 0.85)
+    const t1 = smooth01((scrollP - 0.06) / 0.49)
+    const t2 = smooth01((scrollP - 0.55) / 0.37)
+
+    viewCam.position.lerpVectors(scrollEntryPos, approach, t1)
+    viewCam.position.lerp(tmpVecB.copy(pov.pos).addScaledVector(fwd, 0.03), t2)
+
+    tmpMat.lookAt(viewCam.position, pov.pos, viewCam.up)
+    tmpQuat.setFromRotationMatrix(tmpMat)
+    tmpQuat.slerp(pov.quat, t2)
+    viewCam.quaternion.slerpQuaternions(scrollEntryQuat, tmpQuat, t1)
+
+    chip(t2 > 0.6 ? "JOE'S POV" : 'GUIDED TO JOE')
+  } else if (camState === 'follow') {
+    followTimer += dt
+    const k = 1 - Math.exp(-dt * 5.5)
+    viewCam.position.lerp(followed.chasePos, k)
+    viewCam.quaternion.slerp(rideQuat, k)
+    if (followTimer > FOLLOW_SECONDS) enterWander()
+  } else if (camState === 'blend') {
+    blendT += dt / BLEND_SECONDS
+    const e = easeInOut(Math.min(blendT, 1))
+    viewCam.position.lerpVectors(blendFromPos, followed.chasePos, e)
+    viewCam.quaternion.slerpQuaternions(blendFromQuat, rideQuat, e)
+    if (blendT >= 1) enterFollow(followIndex)
+  } else if (camState === 'drag') {
+    controls.update()
+  } else {
+    // wander: cruise with gentle orbit steering inside a shell around the figure
+    wanderTimer += dt
+    const p = viewCam.position
+    const radialN = new THREE.Vector3(p.x, 0, p.z)
+    const r = radialN.length() || 1
+    radialN.divideScalar(r)
+
+    if (r < 1.6) wanderVel.addScaledVector(radialN, dt * 3) // too close — push out
+    else if (r > 8) wanderVel.addScaledVector(radialN, -dt * 3) // too far — pull in
+    wanderVel.addScaledVector(new THREE.Vector3(-radialN.z, 0, radialN.x), dt * 0.35)
+    wanderVel.y += Math.sin(elapsed * 0.45) * dt * 0.12
+    wanderVel.multiplyScalar(Math.exp(-dt * 0.25))
+    wanderVel.clampLength(0.25, 1.1)
+    p.addScaledVector(wanderVel, dt)
+
+    // gaze drifts around the figure
+    const gaze = new THREE.Vector3(
+      Math.sin(elapsed * 0.21) * 0.5,
+      MODEL_HEIGHT * (0.45 + 0.15 * Math.sin(elapsed * 0.17)),
+      Math.cos(elapsed * 0.19) * 0.5,
+    )
+    tmpMat.lookAt(p, gaze, viewCam.up)
+    tmpQuat.setFromRotationMatrix(tmpMat)
+    viewCam.quaternion.slerp(tmpQuat, 1 - Math.exp(-dt * 2.2))
+
+    // did the drift come across a rig?
+    const now = performance.now()
+    for (let i = 0; i < flyers.length; i++) {
+      if (now < (rigIgnoreUntil.get(i) ?? 0)) continue
+      if (p.distanceTo(flyers[i].pos) < ENCOUNTER_DIST) {
+        blendToRig(i)
+        break
+      }
+    }
+    // failsafe: never wander forever — visit the next rig in line
+    if (camState === 'wander' && wanderTimer > WANDER_MAX_SECONDS) {
+      blendToRig((followIndex + 1) % flyers.length)
+    }
+  }
+
+  prevCamPos.copy(viewCam.position)
+
+  if (debugScroll) {
+    document.title = `p=${scrollP.toFixed(2)} y=${Math.round(window.scrollY)} ${camState}`
+  }
+}
