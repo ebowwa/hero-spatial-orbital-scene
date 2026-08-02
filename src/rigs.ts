@@ -27,6 +27,8 @@ export interface CameraRigDef {
   lensColor?: number
   /** yaw (radians) to bring the model's front onto -Z */
   rotationY?: number
+  /** no GLB — the rig lives on the figure's face (glasses POV camera) */
+  virtual?: boolean
   /** optional per-rig material treatment, applied after defaultStylize */
   stylize?: (root: THREE.Group) => void
 }
@@ -116,5 +118,15 @@ export const CAMERA_RIGS: CameraRigDef[] = [
     lensOffset: [0, -0.03, -0.22],
     lensRadius: 0.02,
     lensColor: 0xffc36b, // DJI status-LED amber
+  },
+  {
+    // the Ray-Ban Meta left lens is a camera — this rig is its POV,
+    // mounted on the figure's face instead of flying a path
+    id: 'glasses-cam',
+    label: 'GLASSES CAM',
+    url: '',
+    size: 0,
+    virtual: true,
+    lensOffset: [0, 0, 0],
   },
 ]

@@ -92,7 +92,7 @@ composer.addPass(new OutputPass())
   scene.add(dome)
 }
 
-scene.add(new THREE.AmbientLight(0x1c3f4a, 0.3))
+scene.add(new THREE.AmbientLight(0x1c3f4a, 0.45))
 
 const rimLight = new THREE.DirectionalLight(0x9fe8ff, 0.7)
 rimLight.position.set(-4, 6, -5)
@@ -161,17 +161,15 @@ scene.add(figure)
 let halfArmSpan = 1.1
 
 async function setupFigure() {
-  const gltf = await loadGlb('/assets/anthropoid.glb')
+  const gltf = await loadGlb('/assets/person.glb')
   const root = gltf.scene
 
-  // the file already carries its own upright rotation on Sketchfab_model —
-  // don't add another one
+  // normalize: stand the figure on y=0 at MODEL_HEIGHT, centered on origin
   const box = new THREE.Box3().setFromObject(root)
   const size = box.getSize(new THREE.Vector3())
   const scale = MODEL_HEIGHT / size.y
   root.scale.setScalar(scale)
 
-  // recenter: feet on y=0, body centered on the origin
   box.setFromObject(root)
   const center = box.getCenter(new THREE.Vector3())
   root.position.x -= center.x
@@ -183,15 +181,17 @@ async function setupFigure() {
 
   root.traverse((obj) => {
     if (obj instanceof THREE.Mesh) {
-      const mat = obj.material as THREE.MeshStandardMaterial
-      if (mat && mat.isMeshStandardMaterial) {
-        // the source material ships emissive=1 with the basecolor as emissive
-        // map — it renders fully self-lit and nukes every lighting decision
-        mat.emissive.setScalar(0)
-        mat.emissiveMap = null
-        mat.envMapIntensity = 0.45
-        mat.roughness = Math.min(mat.roughness, 0.55)
-        mat.metalness = Math.max(mat.metalness, 0.25)
+      const mats = Array.isArray(obj.material) ? obj.material : [obj.material]
+      for (const mat of mats) {
+        if (mat && mat.isMeshStandardMaterial) {
+          // strip any fully self-lit materials (same emissive-map trap as the
+          // anthropoid) but keep the realistic PBR look — skin, cloth, glass
+          if (mat.emissiveMap) {
+            mat.emissive.setScalar(0)
+            mat.emissiveMap = null
+          }
+          mat.envMapIntensity = 0.45
+        }
       }
     }
   })
@@ -218,6 +218,7 @@ interface Flyer {
   targetOffset: number
   pathSpread: number // radial multiplier (keeps loops from colliding)
   reverse: boolean
+  pov?: boolean // face-mounted rig: fixed pose, no spline, follow == POV
   // per-frame state (reused, no allocs)
   pos: THREE.Vector3
   quat: THREE.Quaternion
@@ -238,15 +239,36 @@ async function setupFlyers() {
 
   for (let i = 0; i < CAMERA_RIGS.length; i++) {
     const def = CAMERA_RIGS[i]
-    const group = await buildRig(def, loadGlb)
+    const group = def.virtual ? new THREE.Group() : await buildRig(def, loadGlb)
 
-    // the key light this flyer carries — it lights whatever the flyer films
-    const spot = new THREE.SpotLight(0xd8fbff, 6, 30, Math.PI / 4.2, 0.65, 1.4)
-    group.add(spot)
+    let povState:
+      | { pos: THREE.Vector3; quat: THREE.Quaternion }
+      | undefined
     const spotTarget = new THREE.Object3D()
     scene.add(spotTarget)
-    spot.target = spotTarget
-    group.add(new THREE.PointLight(0x66e5f2, 0.8, 4, 2))
+
+    if (def.virtual) {
+      // glasses POV: mount at his LEFT lens (Meta camera side), facing +Z
+      const dot = new THREE.Mesh(
+        new THREE.SphereGeometry(0.012, 12, 12),
+        new THREE.MeshBasicMaterial({ color: 0xff5a4a }), // recording LED
+      )
+      group.add(dot)
+      const pos = new THREE.Vector3(-0.075, MODEL_HEIGHT * 0.926, 0.15)
+      const quat = new THREE.Quaternion().setFromAxisAngle(
+        new THREE.Vector3(0, 1, 0),
+        Math.PI, // three cameras look down -Z; he faces +Z
+      )
+      group.position.copy(pos)
+      group.quaternion.copy(quat)
+      povState = { pos, quat }
+    } else {
+      // the key light this flyer carries — it lights whatever the flyer films
+      const spot = new THREE.SpotLight(0xd8fbff, 6, 30, Math.PI / 4.2, 0.65, 1.4)
+      group.add(spot)
+      spot.target = spotTarget
+      group.add(new THREE.PointLight(0x66e5f2, 0.8, 4, 2))
+    }
     scene.add(group)
 
     // its feed: an offscreen target + a quad that shows it
@@ -274,7 +296,8 @@ async function setupFlyers() {
     flyers.push({
       def,
       group,
-      cam: new THREE.PerspectiveCamera(50, 16 / 9, 0.05, 100),
+      // Meta glasses shoot ultra-wide — give the POV a matching fov
+      cam: new THREE.PerspectiveCamera(def.virtual ? 68 : 50, 16 / 9, 0.05, 100),
       rt,
       quad,
       spotTarget,
@@ -284,11 +307,14 @@ async function setupFlyers() {
       targetOffset: i === 0 ? 0 : 0.5,
       pathSpread: i === 0 ? 1 : 1.22,
       reverse: i !== 0, // second flyer runs the loop backwards
-      pos: new THREE.Vector3(),
-      quat: new THREE.Quaternion(),
-      lookPos: new THREE.Vector3(),
-      chasePos: new THREE.Vector3(),
-      chaseQuat: new THREE.Quaternion(),
+      pov: def.virtual,
+      pos: povState ? povState.pos.clone() : new THREE.Vector3(),
+      quat: povState ? povState.quat.clone() : new THREE.Quaternion(),
+      lookPos: povState
+        ? povState.pos.clone().add(new THREE.Vector3(0, 0, 4)) // out his gaze
+        : new THREE.Vector3(),
+      chasePos: povState ? povState.pos.clone() : new THREE.Vector3(),
+      chaseQuat: povState ? povState.quat.clone() : new THREE.Quaternion(),
     })
   }
 }
@@ -484,6 +510,7 @@ const zAxis = new THREE.Vector3(0, 0, 1)
 const easeInOut = (t: number) => t * t * (3 - 2 * t)
 
 function updateFlyer(f: Flyer, elapsed: number) {
+  if (f.pov) return // face-mounted: pose is fixed at the glasses mount
   let t = (elapsed / PATH_PERIOD + f.pathOffset) % 1
   if (f.reverse) t = 1 - t
   const tt = (elapsed / TARGET_PERIOD + f.targetOffset) % 1
