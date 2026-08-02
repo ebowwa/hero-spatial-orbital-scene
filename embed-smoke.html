@@ -1,0 +1,22 @@
+<!doctype html>
+<!--
+  Embed smoke test — proves the dual-mode works:
+  importing hero.ts does NOT auto-run the app; mountHero() injects the hero
+  markup into an empty container and boots it on demand. Open at
+  /embed-smoke.html via the dev server. The scene should match the standalone
+  build (http://localhost:5173/). mountHero is single-mount by design.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>hero-spatial-orbital-scene — embed smoke test</title>
+  </head>
+  <body>
+    <div id="hero-root"></div>
+    <script type="module">
+      import { mountHero } from '/src/hero.ts'
+      mountHero(document.getElementById('hero-root'))
+    </script>
+  </body>
+</html>
