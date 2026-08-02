@@ -89,7 +89,7 @@ export async function buildRig(def: CameraRigDef, loadGlb: GlbLoader): Promise<T
 export const CAMERA_RIGS: CameraRigDef[] = [
   {
     id: 'blender-cam',
-    label: 'BLENDER CAMERA',
+    label: 'Camera',
     url: '/assets/camera.glb',
     size: 0.2,
     lensOffset: [0, 0, 0.14],
@@ -128,5 +128,6 @@ export const CAMERA_RIGS: CameraRigDef[] = [
     size: 0,
     virtual: true,
     lensOffset: [0, 0, 0],
+    lensColor: 0xff5a4a, // recording-LED red
   },
 ]

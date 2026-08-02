@@ -22,17 +22,21 @@
     </div>
 
     <div class="hud hud-bottom">
-      <div id="mode-chip" class="chip">FOLLOWING BLENDER CAMERA</div>
-      <div class="btns">
-        <button id="btn-follow" class="btn active" type="button">◉ follow camera</button>
-        <button id="btn-free" class="btn" type="button">✥ free orbit</button>
-        <button id="btn-rig" class="btn" type="button">⇄ follow: BLENDER CAMERA</button>
-      </div>
+      <div id="mode-chip" class="chip">FOLLOWING Camera</div>
     </div>
 
     <div id="feeds" class="hud"></div>
 
-    <div id="nametag" class="hud">◉ JOE</div>
+    <div id="nametag" class="hud">JOE</div>
+
+    <div id="deck" class="hud">
+      <div class="deck-card ghost g2"></div>
+      <div class="deck-card ghost g1"></div>
+      <div class="deck-card front" id="deck-front"></div>
+    </div>
+
+    <div class="scroll-track"></div>
+    <section id="s2"><div class="s2-label">SECTION 02</div></section>
 
     <script type="module" src="/src/main.ts"></script>
   </body>
