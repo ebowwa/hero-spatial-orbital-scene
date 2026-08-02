@@ -214,11 +214,18 @@ html, body {
 /* ---------- card deck: field ID + occupation cards, dimensional ---------- */
 #deck {
   bottom: 96px;
-  right: 28px;
+  /* docked left of the feed column: 28 (feed margin) + 300 (feed width) + 20 gap */
+  right: 348px;
   width: 280px;
   height: 330px;
   perspective: 900px;
   opacity: 0; /* revealed by the scroll story */
+}
+@media (max-width: 700px) {
+  #deck {
+    right: 50%;
+    transform: translateX(50%);
+  }
 }
 .deck-card {
   position: absolute;

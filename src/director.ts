@@ -21,6 +21,8 @@ const WANDER_SPEED = 0.85
 const BLEND_SECONDS = 1.6 // transition duration when acquiring a rig
 
 const modeChip = document.querySelector<HTMLDivElement>('#mode-chip')!
+const copyEl = document.querySelector<HTMLDivElement>('.hud-copy')!
+const feedsEl = document.querySelector<HTMLDivElement>('#feeds')!
 
 let camState: CamState = 'follow'
 let followTimer = 0
@@ -142,7 +144,13 @@ if (debugScroll) {
 // per-frame update
 // ---------------------------------------------------------------------------
 
-const easeInOut = (t: number) => t * t * (3 - 2 * t)
+// per-frame scratch (reused — no allocations in the hot loop)
+const shakeEuler = new THREE.Euler()
+const shakeQuat = new THREE.Quaternion()
+const rideQuat = new THREE.Quaternion()
+const wanderRadial = new THREE.Vector3()
+const wanderTan = new THREE.Vector3()
+const wanderGaze = new THREE.Vector3()
 
 export function updateViewCam(dt: number, elapsed: number) {
   const followed = flyers[followIndex]
@@ -164,7 +172,6 @@ export function updateViewCam(dt: number, elapsed: number) {
   setDeckVisibility(deckVis)
   // hero copy bows out as the guided shot begins
   const copyVis = 1 - smooth01((scrollP - 0.03) / 0.15)
-  const copyEl = document.querySelector<HTMLDivElement>('.hud-copy')!
   copyEl.style.opacity = String(copyVis)
   // feed boxes shrink once joe's cards enter, back to full size at the top
   const targetFeedScale = 1 - 0.4 * smooth01((scrollP - 0.04) / 0.16)
@@ -174,18 +181,16 @@ export function updateViewCam(dt: number, elapsed: number) {
   }
   // feeds step back once we're about to become joe's pov
   const feedsVis = 1 - smooth01((scrollP - 0.6) / 0.2)
-  const feedsEl = document.querySelector<HTMLDivElement>('#feeds')!
   feedsEl.style.opacity = String(feedsVis)
 
   // handheld micro-shake, only while locked onto a rig
-  const shake = new THREE.Quaternion().setFromEuler(
-    new THREE.Euler(
-      Math.sin(elapsed * 0.9) * 0.006 + Math.sin(elapsed * 2.3) * 0.002,
-      Math.cos(elapsed * 0.7) * 0.006,
-      Math.sin(elapsed * 0.5) * 0.004,
-    ),
+  shakeEuler.set(
+    Math.sin(elapsed * 0.9) * 0.006 + Math.sin(elapsed * 2.3) * 0.002,
+    Math.cos(elapsed * 0.7) * 0.006,
+    Math.sin(elapsed * 0.5) * 0.004,
   )
-  const rideQuat = followed.chaseQuat.clone().multiply(shake)
+  shakeQuat.setFromEuler(shakeEuler)
+  rideQuat.copy(followed.chaseQuat).multiply(shakeQuat)
 
   if (camState === 'scroll') {
     // phase 1: glide from wherever we were to just in front of his face
@@ -212,7 +217,7 @@ export function updateViewCam(dt: number, elapsed: number) {
     if (followTimer > FOLLOW_SECONDS) enterWander()
   } else if (camState === 'blend') {
     blendT += dt / BLEND_SECONDS
-    const e = easeInOut(Math.min(blendT, 1))
+    const e = smooth01(Math.min(blendT, 1))
     viewCam.position.lerpVectors(blendFromPos, followed.chasePos, e)
     viewCam.quaternion.slerpQuaternions(blendFromQuat, rideQuat, e)
     if (blendT >= 1) enterFollow(followIndex)
@@ -222,25 +227,26 @@ export function updateViewCam(dt: number, elapsed: number) {
     // wander: cruise with gentle orbit steering inside a shell around the figure
     wanderTimer += dt
     const p = viewCam.position
-    const radialN = new THREE.Vector3(p.x, 0, p.z)
-    const r = radialN.length() || 1
-    radialN.divideScalar(r)
+    wanderRadial.set(p.x, 0, p.z)
+    const r = wanderRadial.length() || 1
+    wanderRadial.divideScalar(r)
 
-    if (r < 1.6) wanderVel.addScaledVector(radialN, dt * 3) // too close — push out
-    else if (r > 8) wanderVel.addScaledVector(radialN, -dt * 3) // too far — pull in
-    wanderVel.addScaledVector(new THREE.Vector3(-radialN.z, 0, radialN.x), dt * 0.35)
+    if (r < 1.6) wanderVel.addScaledVector(wanderRadial, dt * 3) // too close — push out
+    else if (r > 8) wanderVel.addScaledVector(wanderRadial, -dt * 3) // too far — pull in
+    wanderTan.set(-wanderRadial.z, 0, wanderRadial.x)
+    wanderVel.addScaledVector(wanderTan, dt * 0.35)
     wanderVel.y += Math.sin(elapsed * 0.45) * dt * 0.12
     wanderVel.multiplyScalar(Math.exp(-dt * 0.25))
     wanderVel.clampLength(0.25, 1.1)
     p.addScaledVector(wanderVel, dt)
 
     // gaze drifts around the figure
-    const gaze = new THREE.Vector3(
+    wanderGaze.set(
       Math.sin(elapsed * 0.21) * 0.5,
       MODEL_HEIGHT * (0.45 + 0.15 * Math.sin(elapsed * 0.17)),
       Math.cos(elapsed * 0.19) * 0.5,
     )
-    tmpMat.lookAt(p, gaze, viewCam.up)
+    tmpMat.lookAt(p, wanderGaze, viewCam.up)
     tmpQuat.setFromRotationMatrix(tmpMat)
     viewCam.quaternion.slerp(tmpQuat, 1 - Math.exp(-dt * 2.2))
 

@@ -13,6 +13,8 @@ import type { CameraRigDef } from './rigs.ts'
 const PATH_PERIOD = 46 // seconds for one full loop
 const TARGET_PERIOD = 29 // seconds for the look-target loop (de-synced on purpose)
 
+const bankQuat = new THREE.Quaternion() // per-flyer banking scratch (updateFlyer)
+
 export interface Flyer {
   def: CameraRigDef
   group: THREE.Group // rig + lights, moved along the path
@@ -209,7 +211,7 @@ export function updateFlyer(f: Flyer, elapsed: number) {
   f.quat.setFromRotationMatrix(tmpMat)
   // gentle banking so the flyer doesn't feel bolted to a rail
   const bank = Math.sin(elapsed * 0.6 + f.pathOffset * 7) * 0.05
-  f.quat.multiply(new THREE.Quaternion().setFromAxisAngle(zAxis, bank))
+  f.quat.multiply(bankQuat.setFromAxisAngle(zAxis, bank))
   f.group.quaternion.copy(f.quat)
 
   // chase position: trail the flyer so it stays visible in the follow shot
