@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { viewCam, canvas, tmpMat, tmpQuat, tmpVecA, tmpVecB, MODEL_HEIGHT } from './engine.ts'
-import { flyers } from './flyers.ts'
+import { flyers , layoutFeeds } from './flyers.ts'
 import { setDeckVisibility } from './deck.ts'
 
 // ---------------------------------------------------------------------------
@@ -38,6 +38,7 @@ const controls = new OrbitControls(viewCam, canvas)
 controls.enableDamping = true
 controls.dampingFactor = 0.06
 controls.enablePan = false
+controls.enableZoom = false // wheel must scroll the page (scroll story), not dolly
 controls.minDistance = 0.6
 controls.maxDistance = 9
 controls.target.set(0, MODEL_HEIGHT * 0.55, 0)
@@ -109,6 +110,7 @@ window.addEventListener('keydown', (e) => {
 
 const trackEl = document.querySelector<HTMLDivElement>('.scroll-track')!
 let scrollP = 0
+let lastAppliedFeedScale = 1
 const scrollEntryPos = new THREE.Vector3()
 const scrollEntryQuat = new THREE.Quaternion()
 
@@ -160,6 +162,20 @@ export function updateViewCam(dt: number, elapsed: number) {
   // deck rides the scroll: slides in early, exits as we enter his head
   const deckVis = smooth01((scrollP - 0.04) / 0.08) * (1 - smooth01((scrollP - 0.55) / 0.15))
   setDeckVisibility(deckVis)
+  // hero copy bows out as the guided shot begins
+  const copyVis = 1 - smooth01((scrollP - 0.03) / 0.15)
+  const copyEl = document.querySelector<HTMLDivElement>('.hud-copy')!
+  copyEl.style.opacity = String(copyVis)
+  // feed boxes shrink once joe's cards enter, back to full size at the top
+  const targetFeedScale = 1 - 0.4 * smooth01((scrollP - 0.04) / 0.16)
+  if (Math.abs(targetFeedScale - lastAppliedFeedScale) > 0.002) {
+    lastAppliedFeedScale = targetFeedScale
+    layoutFeeds(targetFeedScale)
+  }
+  // feeds step back once we're about to become joe's pov
+  const feedsVis = 1 - smooth01((scrollP - 0.6) / 0.2)
+  const feedsEl = document.querySelector<HTMLDivElement>('#feeds')!
+  feedsEl.style.opacity = String(feedsVis)
 
   // handheld micro-shake, only while locked onto a rig
   const shake = new THREE.Quaternion().setFromEuler(
@@ -177,7 +193,7 @@ export function updateViewCam(dt: number, elapsed: number) {
     const fwd = tmpVecA.set(0, 0, -1).applyQuaternion(pov.quat)
     const approach = tmpVecB.copy(pov.pos).addScaledVector(fwd, 0.85)
     const t1 = smooth01((scrollP - 0.06) / 0.49)
-    const t2 = smooth01((scrollP - 0.55) / 0.37)
+    const t2 = smooth01((scrollP - 0.64) / 0.3)
 
     viewCam.position.lerpVectors(scrollEntryPos, approach, t1)
     viewCam.position.lerp(tmpVecB.copy(pov.pos).addScaledVector(fwd, 0.03), t2)

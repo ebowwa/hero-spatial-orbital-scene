@@ -134,24 +134,42 @@ export async function setupFlyers() {
 // an overlay scene composites the textures over the main pass every frame
 // ---------------------------------------------------------------------------
 
-export function measureFeeds() {
-  for (const f of flyers) {
-    const r = f.feedEl.getBoundingClientRect()
-    f.feedRect.x = r.left
-    f.feedRect.y = r.top
-    f.feedRect.w = r.width
-    f.feedRect.h = r.height
-    f.cam.aspect = r.width / r.height
+const FEED_BASE_W = 300
+const FEED_BASE_H = 169
+const FEED_GAP = 10
+const FEED_TOP = 64
+const FEED_RIGHT = 28
+let lastFeedScale = 1
+
+/** size + place every feed box analytically (CSS px), quads included */
+export function layoutFeeds(scale: number) {
+  lastFeedScale = scale
+  const w = Math.round(FEED_BASE_W * scale)
+  const h = Math.round(FEED_BASE_H * scale)
+  for (let i = 0; i < flyers.length; i++) {
+    const f = flyers[i]
+    f.feedEl.style.width = `${w}px`
+    f.feedEl.style.height = `${h}px`
+
+    f.feedRect.x = window.innerWidth - FEED_RIGHT - w
+    f.feedRect.y = FEED_TOP + i * (h + FEED_GAP)
+    f.feedRect.w = w
+    f.feedRect.h = h
+    f.cam.aspect = w / h
     f.cam.updateProjectionMatrix()
 
     // place the quad over the feed box (CSS px → NDC)
-    const x0 = (r.left / window.innerWidth) * 2 - 1
-    const x1 = ((r.left + r.width) / window.innerWidth) * 2 - 1
-    const y1 = 1 - (r.top / window.innerHeight) * 2
-    const y0 = 1 - ((r.top + r.height) / window.innerHeight) * 2
+    const x0 = (f.feedRect.x / window.innerWidth) * 2 - 1
+    const x1 = ((f.feedRect.x + w) / window.innerWidth) * 2 - 1
+    const y1 = 1 - (f.feedRect.y / window.innerHeight) * 2
+    const y0 = 1 - ((f.feedRect.y + h) / window.innerHeight) * 2
     f.quad.scale.set(x1 - x0, y1 - y0, 1)
     f.quad.position.set((x0 + x1) / 2, (y0 + y1) / 2, 0)
   }
+}
+
+export function measureFeeds() {
+  layoutFeeds(lastFeedScale)
 }
 
 /** slow path: re-render each flyer's feed into its render target */
