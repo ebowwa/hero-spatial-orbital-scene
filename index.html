@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IMTA — XR Modell 04</title>
+  </head>
+  <body>
+    <canvas id="scene"></canvas>
+
+    <div id="loader">
+      <div class="loader-inner">
+        <div class="loader-title">IMTA / XR-04</div>
+        <div class="loader-bar"><div id="loader-fill"></div></div>
+        <div id="loader-pct">0%</div>
+      </div>
+    </div>
+
+    <div class="hud hud-copy">
+      <h1>A figure made<br />of fragments.</h1>
+      <p>An XR capture in flight — the camera orbits the specimen.<br />Grab the scene to take control. Let go, and the camera resumes.</p>
+    </div>
+
+    <div class="hud hud-bottom">
+      <div id="mode-chip" class="chip">FOLLOWING BLENDER CAMERA</div>
+      <div class="btns">
+        <button id="btn-follow" class="btn active" type="button">◉ follow camera</button>
+        <button id="btn-free" class="btn" type="button">✥ free orbit</button>
+        <button id="btn-rig" class="btn" type="button">⇄ follow: BLENDER CAMERA</button>
+      </div>
+    </div>
+
+    <div id="feeds" class="hud"></div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
