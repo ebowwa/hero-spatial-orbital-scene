@@ -123,7 +123,7 @@ export const CAMERA_RIGS: CameraRigDef[] = [
     // the Ray-Ban Meta left lens is a camera — this rig is its POV,
     // mounted on the figure's face instead of flying a path
     id: 'glasses-cam',
-    label: 'GLASSES CAM',
+    label: 'Joe\'s Glasses',
     url: '',
     size: 0,
     virtual: true,
