@@ -7,8 +7,8 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 
 // ---------------------------------------------------------------------------
 // engine — core singletons (renderer/scene/camera/composer/clock), the shared
-// per-frame scratch pool, the environment, and the resize registry. Every
-// other module imports these.
+// per-frame scratch pool, and the resize registry. Every other module imports
+// these.
 // ---------------------------------------------------------------------------
 
 export const MODEL_HEIGHT = 2.4 // normalized height of the figure, world units
@@ -58,65 +58,11 @@ composer.addPass(bloom)
 composer.addPass(new OutputPass())
 
 // ---------------------------------------------------------------------------
-// base lighting — the flyers carry the key lights
+// base lighting — none here anymore. The walls/floor/backdrop/lights live in
+// environment.ts as a swappable, blendable registry (same pattern as the
+// camera rigs); initEnvironment() populates the scene. The flyers carry the
+// key lights.
 // ---------------------------------------------------------------------------
-
-// luminous teal backdrop — the gradient void the figure floats in
-{
-  const c = document.createElement('canvas')
-  c.width = c.height = 512
-  const ctx = c.getContext('2d')!
-  const g = ctx.createRadialGradient(256, 210, 40, 256, 256, 340)
-  g.addColorStop(0, '#1a6472')
-  g.addColorStop(0.45, '#0a3540')
-  g.addColorStop(1, '#020e12')
-  ctx.fillStyle = g
-  ctx.fillRect(0, 0, 512, 512)
-  const tex = new THREE.CanvasTexture(c)
-  tex.colorSpace = THREE.SRGBColorSpace
-  const dome = new THREE.Mesh(
-    new THREE.SphereGeometry(28, 32, 24),
-    new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, fog: false }),
-  )
-  dome.position.y = 2
-  scene.add(dome)
-}
-
-scene.add(new THREE.AmbientLight(0x1c3f4a, 0.45))
-
-const rimLight = new THREE.DirectionalLight(0x9fe8ff, 0.7)
-rimLight.position.set(-4, 6, -5)
-scene.add(rimLight)
-
-const underGlow = new THREE.PointLight(0x1e7d8c, 2.5, 9, 1.8)
-underGlow.position.set(0, 0.15, 0)
-scene.add(underGlow)
-
-// soft radial glow disc under the figure
-{
-  const c = document.createElement('canvas')
-  c.width = c.height = 256
-  const ctx = c.getContext('2d')!
-  const g = ctx.createRadialGradient(128, 128, 0, 128, 128, 128)
-  g.addColorStop(0, 'rgba(80, 220, 235, 0.55)')
-  g.addColorStop(0.5, 'rgba(30, 120, 135, 0.18)')
-  g.addColorStop(1, 'rgba(0, 0, 0, 0)')
-  ctx.fillStyle = g
-  ctx.fillRect(0, 0, 256, 256)
-  const tex = new THREE.CanvasTexture(c)
-  const disc = new THREE.Mesh(
-    new THREE.CircleGeometry(3.2, 48),
-    new THREE.MeshBasicMaterial({
-      map: tex,
-      transparent: true,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    }),
-  )
-  disc.rotation.x = -Math.PI / 2
-  disc.position.y = 0.005
-  scene.add(disc)
-}
 
 // ---------------------------------------------------------------------------
 // per-frame scratch pool — shared, reused every frame (no allocs). Safe because
