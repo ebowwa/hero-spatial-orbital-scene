@@ -110,7 +110,7 @@ export const CAMERA_RIGS: CameraRigDef[] = [
   },
   {
     id: 'dji-mini-3-pro',
-    label: 'DRONE—TOM',
+    label: "Tom's Drone",
     url: '/assets/dji_3_mini_pro.glb',
     size: 0.45,
     // model's gimbal sits on +Z — flip so it faces the drone's -Z look dir
