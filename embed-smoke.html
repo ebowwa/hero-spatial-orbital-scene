@@ -16,7 +16,9 @@
     <div id="hero-root"></div>
     <script type="module">
       import { mountHero } from '/src/hero.ts'
-      mountHero(document.getElementById('hero-root'))
+      // debugKeys on so this page matches the standalone build exactly —
+      // embedded mounts default them off (host pages have real users typing)
+      mountHero(document.getElementById('hero-root'), { debugKeys: true })
     </script>
   </body>
 </html>

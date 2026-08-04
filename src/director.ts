@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { viewCam, canvas, tmpMat, tmpQuat, tmpVecA, tmpVecB, MODEL_HEIGHT } from './engine.ts'
 import { flyers , layoutFeeds } from './flyers.ts'
 import { setDeckVisibility } from './deck.ts'
+import { embedConfig, isEditableTarget } from './embed.ts'
 
 // ---------------------------------------------------------------------------
 // camera director — always following SOME rig. It dwells on one, then drifts
@@ -37,6 +38,11 @@ let followIndex = 0 // which flyer the view cam chases
 let povIndex = -1 // the face-mounted glasses rig (resolved after setup)
 
 const controls = new OrbitControls(viewCam, canvas)
+// OrbitControls writes touch-action: none on the canvas; that traps touch
+// scrolling over this full-viewport canvas and makes the scroll story
+// unreachable on mobile. pan-y lets vertical swipes scroll the page while
+// horizontal drags still orbit. (Hosts no longer need to override this.)
+canvas.style.touchAction = 'pan-y'
 controls.enableDamping = true
 controls.dampingFactor = 0.06
 controls.enablePan = false
@@ -102,7 +108,11 @@ controls.addEventListener('end', () => {
 })
 
 window.addEventListener('keydown', (e) => {
-  if (e.key === 'c') blendToRig((followIndex + 1) % flyers.length) // skip to next rig
+  // skip to next rig — gated so it never fires on a host page (Cmd+C is copy)
+  if (!embedConfig.debugKeys) return
+  if (e.key !== 'c' || e.metaKey || e.ctrlKey || e.altKey) return
+  if (isEditableTarget(e.target)) return
+  blendToRig((followIndex + 1) % flyers.length)
 })
 
 // ---------------------------------------------------------------------------
@@ -116,11 +126,29 @@ let lastAppliedFeedScale = 1
 const scrollEntryPos = new THREE.Vector3()
 const scrollEntryQuat = new THREE.Quaternion()
 
+// hosts read the story progress here instead of re-deriving it from their
+// own copy of the track geometry (the handoff math stays in sync by
+// construction). cb fires immediately with the current value, and returns
+// an unsubscribe.
+const scrollProgressCbs = new Set<(p: number) => void>()
+
+export function onScrollProgress(cb: (p: number) => void): () => void {
+  scrollProgressCbs.add(cb)
+  cb(scrollP)
+  return () => scrollProgressCbs.delete(cb)
+}
+
+/** px of scrollY between story start and scrollP = 1 (track minus viewport) */
+export function getScrollRange(): number {
+  return Math.max(trackEl.offsetHeight - window.innerHeight, 0)
+}
+
 window.addEventListener(
   'scroll',
   () => {
-    const range = trackEl.offsetHeight - window.innerHeight
+    const range = getScrollRange()
     scrollP = range > 0 ? Math.min(Math.max(window.scrollY / range, 0), 1) : 0
+    for (const cb of scrollProgressCbs) cb(scrollP)
   },
   { passive: true },
 )

@@ -4,6 +4,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
+import { embedConfig } from './embed.ts'
 
 // ---------------------------------------------------------------------------
 // engine — core singletons (renderer/scene/camera/composer/clock), the shared
@@ -22,7 +23,8 @@ const FOG_COLOR = new THREE.Color('#06262e')
 
 export const canvas = document.querySelector<HTMLCanvasElement>('#scene')!
 export const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
+// cap is host-configurable via mountHero() (embed.ts); standalone keeps 1.5
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, embedConfig.maxPixelRatio))
 renderer.setSize(window.innerWidth, window.innerHeight)
 renderer.toneMapping = THREE.ACESFilmicToneMapping
 renderer.toneMappingExposure = 0.85
