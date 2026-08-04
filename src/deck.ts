@@ -6,7 +6,7 @@
 // override layer.
 // ---------------------------------------------------------------------------
 
-import { transitionTo } from './environment.ts'
+import { transitionTo, ENVIRONMENTS } from './environment.ts'
 import { sceneConfig } from './config-data/index.ts'
 import type { OccCard, JoeCardContent } from './config-data/types.ts'
 
@@ -22,7 +22,11 @@ let currentScene = JOE_CARD.scene
 let lastVis = 0
 
 function syncWorldToCard() {
-  if (lastVis > 0.5) transitionTo(currentScene, deckContent.timings.crossfadeSeconds)
+  // role scenes ship one at a time — hold the current world for cards
+  // whose scene isn't registered yet
+  if (lastVis > 0.5 && ENVIRONMENTS.some((e) => e.id === currentScene)) {
+    transitionTo(currentScene, deckContent.timings.crossfadeSeconds)
+  }
 }
 
 const deckEl = document.querySelector<HTMLDivElement>('#deck')!

@@ -1,14 +1,7 @@
 import * as THREE from 'three'
 import { scene } from './engine.ts'
 import { sceneConfig } from './config-data/index.ts'
-import type {
-  CircuitBayPalette,
-  WorkshopPalette,
-  WoodShopPalette,
-  SolarPalette,
-  MuralPalette,
-  MechRoomPalette,
-} from './config-data/environments.ts'
+import type { WoodShopPalette } from './config-data/environments.ts'
 
 // ---------------------------------------------------------------------------
 // environment primitive — walls/floor/backdrop as a swappable, blendable unit
@@ -90,95 +83,6 @@ export function gridTexture(bg: string, line: string, cells: number, repeat: [nu
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping
   tex.repeat.set(repeat[0], repeat[1])
   return tex
-}
-
-// ---------------------------------------------------------------------------
-// role-scene wall textures — palettes lifted from the deck's per-occupation
-// SCENES so the card backdrop and the 3D world read as one place
-// ---------------------------------------------------------------------------
-
-function canvas512(draw: (ctx: CanvasRenderingContext2D) => void): THREE.CanvasTexture {
-  const c = document.createElement('canvas')
-  c.width = c.height = 512
-  draw(c.getContext('2d')!)
-  const tex = new THREE.CanvasTexture(c)
-  tex.colorSpace = THREE.SRGBColorSpace
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping
-  return tex
-}
-
-/** pegboard — workshop wall with a regular hole grid */
-function pegboardTexture(bg: string, hole: string): THREE.CanvasTexture {
-  return canvas512((ctx) => {
-    ctx.fillStyle = bg
-    ctx.fillRect(0, 0, 512, 512)
-    ctx.fillStyle = hole
-    for (let y = 16; y < 512; y += 32) {
-      for (let x = 16; x < 512; x += 32) {
-        ctx.beginPath()
-        ctx.arc(x, y, 4.5, 0, Math.PI * 2)
-        ctx.fill()
-      }
-    }
-  })
-}
-
-/** mural wall — brick + wide spray strokes */
-function muralTexture(bg: string, mortar: string, sprays: string[]): THREE.CanvasTexture {
-  return canvas512((ctx) => {
-    ctx.fillStyle = bg
-    ctx.fillRect(0, 0, 512, 512)
-    ctx.strokeStyle = mortar
-    ctx.lineWidth = 3
-    const rowH = 42
-    for (let y = 0; y <= 512; y += rowH) {
-      ctx.beginPath()
-      ctx.moveTo(0, y)
-      ctx.lineTo(512, y)
-      ctx.stroke()
-      const off = (y / rowH) % 2 === 0 ? 0 : 48
-      for (let x = off; x <= 512; x += 96) {
-        ctx.beginPath()
-        ctx.moveTo(x, y)
-        ctx.lineTo(x, y + rowH)
-        ctx.stroke()
-      }
-    }
-    ctx.lineCap = 'round'
-    sprays.forEach((col, i) => {
-      ctx.strokeStyle = col
-      ctx.globalAlpha = 0.45
-      ctx.lineWidth = 16 - i * 4
-      ctx.beginPath()
-      ctx.moveTo(-20, 400 - i * 110)
-      ctx.bezierCurveTo(150, 260 - i * 70, 330, 470 - i * 120, 540, 300 - i * 50)
-      ctx.stroke()
-    })
-    ctx.globalAlpha = 1
-  })
-}
-
-/** rooftop solar — panel cell grid */
-function panelTexture(face: string, cell: string): THREE.CanvasTexture {
-  return canvas512((ctx) => {
-    ctx.fillStyle = face
-    ctx.fillRect(0, 0, 512, 512)
-    ctx.strokeStyle = cell
-    ctx.lineWidth = 2
-    const step = 512 / 6
-    ctx.beginPath()
-    for (let i = 0; i <= 6; i++) {
-      ctx.moveTo(i * step, 0)
-      ctx.lineTo(i * step, 512)
-      ctx.moveTo(0, i * step)
-      ctx.lineTo(512, i * step)
-    }
-    ctx.stroke()
-    ctx.fillStyle = '#ffffff'
-    ctx.globalAlpha = 0.05
-    ctx.fillRect(0, 0, 512, 128)
-    ctx.globalAlpha = 1
-  })
 }
 
 // ---------------------------------------------------------------------------
@@ -355,13 +259,6 @@ function floorDisc(color: number, r = 13): THREE.Mesh {
   return m
 }
 
-/** stage-set wall slab — props mount on these instead of a wallpapered box */
-function wallSlab(w: number, h: number, color: number): THREE.Mesh {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.3), std(color, 0.95))
-  m.position.y = h / 2
-  return m
-}
-
 /** plain dark enclosure — keeps the void out of frame as the camera orbits;
  *  feature walls and props carry the identity */
 function enclosure(color: number): THREE.Mesh {
@@ -370,15 +267,6 @@ function enclosure(color: number): THREE.Mesh {
     new THREE.MeshStandardMaterial({ color, roughness: 0.95, side: THREE.BackSide }),
   )
   m.position.y = 5
-  return m
-}
-
-function skyDome(stops: [number, string][], cx: number, cy: number): THREE.Mesh {
-  const m = new THREE.Mesh(
-    new THREE.SphereGeometry(30, 32, 24),
-    new THREE.MeshBasicMaterial({ map: radialTexture(stops, cx, cy, 16, 460), side: THREE.BackSide, fog: false }),
-  )
-  m.position.y = 2
   return m
 }
 
@@ -426,58 +314,6 @@ function sawhorse(color = 0x8a6a44): THREE.Group {
   return g
 }
 
-function workbench(wood = 0x7a5c3a, toolbox = 0xb23b3b, tray = 0x5d8b93): THREE.Group {
-  const g = new THREE.Group()
-  const woodMat = std(wood, 0.9)
-  addBox(g, 1.9, 0.09, 0.75, woodMat, 0, 0.86, 0)
-  for (const sx of [-1, 1]) {
-    for (const sz of [-1, 1]) addBox(g, 0.09, 0.86, 0.09, woodMat, sx * 0.85, 0.43, sz * 0.3)
-  }
-  addBox(g, 1.7, 0.05, 0.6, woodMat, 0, 0.28, 0) // lower shelf
-  addBox(g, 0.44, 0.2, 0.24, std(toolbox, 0.6, 0.3), -0.5, 1.0, 0.1) // toolbox
-  addBox(g, 0.3, 0.12, 0.18, std(tray, 0.5, 0.4), 0.45, 0.96, -0.15) // parts tray
-  return g
-}
-
-function stepLadder(color = 0x9fb0ba): THREE.Group {
-  const g = new THREE.Group()
-  const alu = std(color, 0.4, 0.7)
-  for (const s of [-1, 1]) {
-    const rail = addBox(g, 0.05, 1.9, 0.07, alu, s * 0.24, 0.95, 0.06)
-    rail.rotation.z = -s * 0.12
-  }
-  for (let i = 1; i <= 4; i++) addBox(g, 0.44, 0.04, 0.1, alu, 0, i * 0.38, 0.06)
-  for (const s of [-1, 1]) {
-    const rail = addBox(g, 0.05, 1.85, 0.06, alu, s * 0.22, 0.92, -0.26)
-    rail.rotation.z = -s * 0.12
-    rail.rotation.x = 0.3
-  }
-  return g
-}
-
-/** wall-mounted electrical panel cabinet with a status LED */
-function panelCabinet(h = 0.85, body = 0x8f9aa3, door = 0xa5b0b8, led = 0x2fd4e8): THREE.Group {
-  const g = new THREE.Group()
-  addBox(g, 0.55, h, 0.16, std(body, 0.45, 0.7), 0, h / 2, 0)
-  addBox(g, 0.45, h - 0.12, 0.03, std(door, 0.4, 0.7), 0, h / 2, 0.09)
-  const ledMesh = new THREE.Mesh(new THREE.SphereGeometry(0.018, 10, 10), emissive(led))
-  ledMesh.position.set(0.16, h - 0.1, 0.11)
-  g.add(ledMesh)
-  return g
-}
-
-/** conduit — vertical rise, elbow, horizontal carry */
-function conduitRun(rise: number, carry: number, color = 0x9aa5ad): THREE.Group {
-  const g = new THREE.Group()
-  const metal = std(color, 0.35, 0.85)
-  addCyl(g, 0.032, rise, metal, 0, rise / 2, 0)
-  const elbow = new THREE.Mesh(new THREE.SphereGeometry(0.042, 12, 12), metal)
-  elbow.position.set(0, rise, 0)
-  g.add(elbow)
-  addCyl(g, 0.032, carry, metal, carry / 2, rise, 0, 'x')
-  return g
-}
-
 /** hanging work lamp — cord, cone shade, glowing bulb (add a PointLight too) */
 function hangingLamp(drop: number, glow = 0xffd9a0): THREE.Group {
   const g = new THREE.Group()
@@ -494,199 +330,10 @@ function hangingLamp(drop: number, glow = 0xffd9a0): THREE.Group {
   return g
 }
 
-/** scaffold tower — posts at two depths, two plank decks, one brace */
-function scaffold(width: number, topH: number, steel = 0x6f7d86, plank = 0x8a6a44): THREE.Group {
-  const g = new THREE.Group()
-  const steelMat = std(steel, 0.5, 0.6)
-  const plankMat = std(plank, 0.95)
-  for (const sx of [-1, 1]) {
-    addCyl(g, 0.028, topH + 0.35, steelMat, (sx * width) / 2, (topH + 0.35) / 2, 0)
-    addCyl(g, 0.028, topH + 0.35, steelMat, (sx * width) / 2, (topH + 0.35) / 2, 0.5)
-  }
-  for (const h of [topH * 0.5, topH]) addBox(g, width + 0.15, 0.045, 0.55, plankMat, 0, h, 0.25)
-  const brace = addBox(g, 0.03, topH * 0.75, 0.03, steelMat, 0, topH * 0.44, 0.5)
-  brace.rotation.z = 0.6
-  return g
-}
-
-function bucket(paintColor: number, metal = 0xd8dde0): THREE.Group {
-  const g = new THREE.Group()
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.085, 0.17, 18), std(metal, 0.6, 0.3))
-  body.position.y = 0.085
-  g.add(body)
-  const paint = new THREE.Mesh(new THREE.CircleGeometry(0.088, 18), std(paintColor, 0.4))
-  paint.rotation.x = -Math.PI / 2
-  paint.position.y = 0.172
-  g.add(paint)
-  return g
-}
-
-/** rectangular duct run with flanges, along local x */
-function rectDuct(len: number, color = 0x7f8b93): THREE.Group {
-  const g = new THREE.Group()
-  const galv = std(color, 0.45, 0.75)
-  addBox(g, len, 0.5, 0.6, galv, 0, 0, 0)
-  for (let x = -len / 2 + 0.8; x < len / 2; x += 1.6) addBox(g, 0.05, 0.58, 0.68, galv, x, 0, 0)
-  return g
-}
-
-/** air handler — big box with a louvered face */
-function airHandler(body = 0x6d7a83, louver = 0x4a565e): THREE.Group {
-  const g = new THREE.Group()
-  addBox(g, 1.5, 1.3, 0.9, std(body, 0.55, 0.6), 0, 0.65, 0)
-  for (let i = 0; i < 8; i++) addBox(g, 1.2, 0.035, 0.02, std(louver, 0.5, 0.6), 0, 0.3 + i * 0.11, 0.46)
-  return g
-}
-
-/** rooftop PV module on racking — tilted face, front/back legs */
-function solarPanel(frame = 0x30404a, face = '#0b3d4d', cell = '#175060'): THREE.Group {
-  const g = new THREE.Group()
-  const frameMat = std(frame, 0.5, 0.6)
-  const tilt = new THREE.Group()
-  tilt.add(new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.05, 1.9), frameMat))
-  const faceMesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(2.78, 1.78),
-    new THREE.MeshStandardMaterial({ map: panelTexture(face, cell), roughness: 0.35, metalness: 0.15 }),
-  )
-  faceMesh.rotation.x = -Math.PI / 2
-  faceMesh.position.y = 0.028
-  tilt.add(faceMesh)
-  tilt.rotation.x = -Math.PI / 5.2
-  tilt.position.y = 0.78
-  g.add(tilt)
-  for (const sx of [-1.2, 1.2]) {
-    addBox(g, 0.05, 0.5, 0.05, frameMat, sx, 0.25, 0.7)
-    addBox(g, 0.05, 1.0, 0.05, frameMat, sx, 0.5, -0.75)
-  }
-  return g
-}
-
-function condenserUnit(body = 0x77828a, fan = 0x39444c): THREE.Group {
-  const g = new THREE.Group()
-  addBox(g, 0.9, 0.75, 0.9, std(body, 0.6, 0.5), 0, 0.375, 0)
-  addCyl(g, 0.32, 0.1, std(fan, 0.6, 0.4), 0, 0.78, 0)
-  return g
-}
-
 // ---------------------------------------------------------------------------
 // scene builders — one per world, palette-driven. Palettes live in
 // config-data/environments.ts (host-tunable data); the geometry lives here.
 // ---------------------------------------------------------------------------
-
-/** electrician's bay — panel cabinets, conduit runs, cable tray */
-export function buildCircuitBay(p: CircuitBayPalette): BuiltEnvironment {
-  const g = new THREE.Group()
-  g.add(enclosure(p.shell))
-  g.add(floorDisc(p.floor))
-  const back = wallSlab(10, 4.4, p.slab)
-  back.position.z = -8.5
-  g.add(back)
-  const side = wallSlab(7, 4.4, p.sideSlab)
-  side.position.set(-8, 0, -2.5)
-  side.rotation.y = Math.PI / 2.5
-  g.add(side)
-  for (const [x, h, y] of [[-2.2, 0.95, 1.25], [0.1, 0.7, 1.45], [1.9, 1.05, 1.1]] as const) {
-    const cab = panelCabinet(h, p.steel, p.doorSteel, p.led)
-    cab.position.set(x, y, -8.26)
-    g.add(cab)
-  }
-  const rise1 = conduitRun(1.5, 3.2, p.conduit)
-  rise1.position.set(-2.45, 2.2, -8.26)
-  g.add(rise1)
-  const rise2 = conduitRun(1.7, 2.6, p.conduit)
-  rise2.position.set(2.15, 2.15, -8.26)
-  rise2.rotation.y = Math.PI // carry the other way
-  g.add(rise2)
-  // coiled extension on the floor by the panels
-  const coil = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.028, 10, 28), std(0x22303a, 0.7))
-  coil.rotation.x = Math.PI / 2
-  coil.position.set(-3.6, 0.03, -6.8)
-  g.add(coil)
-  const tray = std(p.tray, 0.5, 0.6)
-  addBox(g, 9, 0.05, 0.55, tray, 0, 4.05, -8.2)
-  addBox(g, 9, 0.14, 0.04, tray, 0, 4.1, -7.95)
-  addBox(g, 9, 0.14, 0.04, tray, 0, 4.1, -8.45)
-  const lamp = hangingLamp(1.1, p.warm[0])
-  lamp.position.set(3.2, 4.4, -3)
-  g.add(lamp)
-  g.add(new THREE.AmbientLight(p.ambient[0], p.ambient[1]))
-  const key = new THREE.DirectionalLight(p.key[0], p.key[1])
-  key.position.set(4, 7, 3)
-  g.add(key)
-  const task = new THREE.PointLight(p.task[0], p.task[1], 12, 1.8)
-  task.position.set(-1, 2.4, -6.5)
-  g.add(task)
-  const warm = new THREE.PointLight(p.warm[0], p.warm[1], 10, 1.8)
-  warm.position.set(3.2, 3.2, -3)
-  g.add(warm)
-  // rolling cart + cable drum on the open side
-  const cart = new THREE.Group()
-  const cartSteel = std(p.tray, 0.5, 0.6)
-  addBox(cart, 0.9, 0.08, 0.6, cartSteel, 0, 0.5, 0)
-  for (const [sx, sz] of [[-0.4, -0.25], [0.4, -0.25], [-0.4, 0.25], [0.4, 0.25]] as const) {
-    addBox(cart, 0.05, 0.5, 0.05, cartSteel, sx, 0.25, sz)
-  }
-  addCyl(cart, 0.35, 0.4, std(p.conduit, 0.6, 0.4), 0, 0.95, 0, 'z')
-  cart.position.set(4.8, 0, 6.2)
-  cart.rotation.y = -2.6
-  g.add(cart)
-  return finish(g)
-}
-
-/** DIY garage — pegboard wall, workbench, stepladder, hanging lamps */
-export function buildWorkshop(p: WorkshopPalette): BuiltEnvironment {
-  const g = new THREE.Group()
-  g.add(enclosure(p.shell))
-  g.add(floorDisc(p.floor))
-  const back = wallSlab(10.5, 4.2, p.slab)
-  back.position.z = -8
-  g.add(back)
-  const boardMat = new THREE.MeshStandardMaterial({
-    map: pegboardTexture(p.pegBg, p.pegHole), roughness: 0.9,
-  })
-  for (const x of [-2.4, 0.4, 3.2]) {
-    addBox(g, 2.5, 1.6, 0.07, std(p.frameWood, 0.9), x, 2.05, -7.8)
-    const board = new THREE.Mesh(new THREE.PlaneGeometry(2.34, 1.44), boardMat)
-    board.position.set(x, 2.05, -7.76)
-    g.add(board)
-  }
-  const bench = workbench(p.benchWood, p.toolbox, p.tray)
-  bench.position.set(-2.6, 0, -5.2)
-  bench.rotation.y = 0.25
-  g.add(bench)
-  const ladder = stepLadder(p.ladder)
-  ladder.position.set(3.4, 0, -4.6)
-  ladder.rotation.y = -0.5
-  g.add(ladder)
-  // extension cord coil + a parts box on the floor
-  const cord = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.03, 10, 28), std(0xd96a2b, 0.7))
-  cord.rotation.x = Math.PI / 2
-  cord.position.set(1.9, 0.035, -3.3)
-  g.add(cord)
-  addBox(g, 0.5, 0.35, 0.4, std(0x8a6f4d, 0.95), -4.3, 0.175, -3.8, 0.3)
-  // parts rack on the open side
-  const rack = new THREE.Group()
-  for (const sx of [-0.8, 0.8]) addBox(rack, 0.06, 1.8, 0.5, std(p.ladder, 0.5, 0.5), sx, 0.9, 0)
-  for (const y of [0.35, 0.9, 1.45]) addBox(rack, 1.7, 0.05, 0.5, std(p.frameWood, 0.9), 0, y, 0)
-  addBox(rack, 0.4, 0.25, 0.35, std(p.toolbox, 0.6, 0.3), -0.4, 1.05, 0)
-  addBox(rack, 0.5, 0.3, 0.4, std(0x8a6f4d, 0.95), 0.4, 0.5, 0)
-  rack.position.set(-5, 0, 5.8)
-  rack.rotation.y = 2.6
-  g.add(rack)
-  for (const [x, z] of [[-2.6, -5.2], [1.6, -4]] as const) {
-    const lamp = hangingLamp(1.2, p.lamp)
-    lamp.position.set(x, 4.3, z)
-    g.add(lamp)
-    const glow = new THREE.PointLight(p.lamp, 1.2, 9, 1.8)
-    glow.position.set(x, 3, z)
-    g.add(glow)
-  }
-  g.add(new THREE.AmbientLight(p.ambient[0], p.ambient[1]))
-  const key = new THREE.DirectionalLight(p.key[0], p.key[1])
-  key.position.set(3, 7, 2)
-  g.add(key)
-  return finish(g)
-}
 
 /** framing going up — stud walls, lumber stack, sawhorses, tungsten lamps */
 export function buildWoodShop(p: WoodShopPalette): BuiltEnvironment {
@@ -718,6 +365,34 @@ export function buildWoodShop(p: WoodShopPalette): BuiltEnvironment {
   const ply = addBox(g, 2.4, 2.8, 0.06, std(p.lumber[2], 0.95), 5, 1.3, 6.8, -2.5)
   ply.rotation.x = -0.15
   addBox(g, 1.2, 0.5, 0.8, std(p.lumber[3], 0.95), -5.5, 0.25, 5.5, 0.4)
+  // extension ladder leaning on the back framing
+  const ladder = new THREE.Group()
+  const ladWood = std(p.stud, 0.9)
+  for (const sx of [-0.28, 0.28]) addBox(ladder, 0.06, 3.4, 0.07, ladWood, sx, 1.7, 0)
+  for (let i = 1; i <= 9; i++) addBox(ladder, 0.56, 0.045, 0.05, std(p.lumber[2], 0.9), 0, i * 0.34, 0.02)
+  ladder.position.set(2.4, 0, -7.05)
+  ladder.rotation.x = -0.18
+  g.add(ladder)
+  // tripod work light aimed back across the bay
+  const trip = new THREE.Group()
+  const tripSteel = std(0x22303a, 0.6, 0.4)
+  for (const [lx, lz, rz, rx] of [[0.28, 0, 0.3, 0], [-0.14, 0.24, -0.15, 0.26], [-0.14, -0.24, -0.15, -0.26]] as const) {
+    const leg = addBox(trip, 0.04, 1.5, 0.04, tripSteel, lx, 0.7, lz)
+    leg.rotation.z = rz
+    leg.rotation.x = rx
+  }
+  addBox(trip, 0.5, 0.36, 0.12, tripSteel, 0, 1.45, 0)
+  addBox(trip, 0.42, 0.28, 0.02, emissive(0xffe6b8, 2.2), 0, 1.45, 0.07)
+  trip.position.set(3.2, 0, -2.2)
+  trip.rotation.y = 2.5
+  g.add(trip)
+  const work = new THREE.PointLight(0xffe0b0, 1.5, 12, 1.8)
+  work.position.set(2.6, 1.5, -2.6)
+  g.add(work)
+  // sawdust pile by the horses
+  const pile = new THREE.Mesh(new THREE.ConeGeometry(0.5, 0.18, 16), std(0xc9a86b, 1))
+  pile.position.set(-2.0, 0.09, -3.8)
+  g.add(pile)
   for (const [x, z] of [[-2.3, -4.4], [3.8, -3.2]] as const) {
     const lamp = hangingLamp(1.3, p.lamp)
     lamp.position.set(x, 4.4, z)
@@ -725,133 +400,6 @@ export function buildWoodShop(p: WoodShopPalette): BuiltEnvironment {
     const glow = new THREE.PointLight(p.lamp, 1.2, 10, 1.8)
     glow.position.set(x, 3, z)
     g.add(glow)
-  }
-  g.add(new THREE.AmbientLight(p.ambient[0], p.ambient[1]))
-  const key = new THREE.DirectionalLight(p.key[0], p.key[1])
-  key.position.set(3, 7, 2)
-  g.add(key)
-  return finish(g)
-}
-
-/** rooftop array — sky dome, parapet, racked panels, condenser, low sun */
-export function buildSolarRoof(p: SolarPalette): BuiltEnvironment {
-  const g = new THREE.Group()
-  g.add(skyDome(p.skyStops, p.skyCx, p.skyCy))
-  g.add(floorDisc(p.roof, 15))
-  const parapet = std(p.parapet, 0.95)
-  for (const [x, z, ry] of [[0, -14.5, 0], [0, 14.5, 0], [-14.5, 0, Math.PI / 2], [14.5, 0, Math.PI / 2]] as const) {
-    addBox(g, 29.5, 0.85, 0.35, parapet, x, 0.42, z, ry)
-  }
-  for (const x of [-8, -4.8, 4.8, 8]) {
-    for (const z of [-5, 0, 5]) {
-      const panel = solarPanel(p.frame, p.panelFace, p.panelCell)
-      panel.position.set(x, 0, z)
-      panel.rotation.y = x < 0 ? 0.15 : -0.15
-      g.add(panel)
-    }
-  }
-  const hvac = condenserUnit(p.unit, p.unitFan)
-  hvac.position.set(6.2, 0, -7.5)
-  g.add(hvac)
-  // raceway run from the array to a junction box on the parapet
-  addBox(g, 0.32, 0.42, 0.16, std(p.unit, 0.6, 0.5), -6, 1.05, -14.25)
-  addCyl(g, 0.04, 9.5, std(p.frame, 0.5, 0.6), -6, 0.3, -9.4, 'z')
-  g.add(new THREE.AmbientLight(p.ambient[0], p.ambient[1]))
-  const sun = new THREE.DirectionalLight(p.sun[0], p.sun[1])
-  sun.position.set(7, 4, -4)
-  g.add(sun)
-  const bounce = new THREE.PointLight(p.warm[0], p.warm[1], 14, 1.8)
-  bounce.position.set(0, 1.2, -4)
-  g.add(bounce)
-  return finish(g)
-}
-
-/** the piece — brick wall with the mural, scaffold, paint buckets */
-export function buildMuralWall(p: MuralPalette): BuiltEnvironment {
-  const g = new THREE.Group()
-  g.add(skyDome(p.skyStops, p.skyCx, p.skyCy))
-  g.add(floorDisc(p.floor))
-  addBox(g, 13, 5.2, 0.45, std(p.wall, 0.95), 0, 2.6, -8.2)
-  const art = new THREE.Mesh(
-    new THREE.PlaneGeometry(12.4, 4.8),
-    new THREE.MeshStandardMaterial({ map: muralTexture(p.brick, p.mortar, p.sprays), roughness: 0.9 }),
-  )
-  art.position.set(0, 2.5, -7.96)
-  g.add(art)
-  const sc = scaffold(3.4, 2.7, p.steel, p.plank)
-  sc.position.set(-2.4, 0, -6.9)
-  g.add(sc)
-  // drop cloth at the wall, spray cans up on the deck
-  const cloth = new THREE.Mesh(new THREE.PlaneGeometry(7, 2.2), std(0xb9c2c6, 0.95))
-  cloth.rotation.x = -Math.PI / 2
-  cloth.position.set(-0.5, 0.004, -6.9)
-  g.add(cloth)
-  for (const [dx, dz, c] of [[-0.5, 0.18, 0], [0.1, 0.3, 1], [0.6, 0.12, 2]] as const) {
-    const can = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.035, 0.035, 0.14, 12),
-      std(new THREE.Color(p.sprays[c]).getHex(), 0.5, 0.3),
-    )
-    can.position.set(-2.4 + dx, 2.8, -6.65 + dz)
-    g.add(can)
-  }
-  for (const [x, z, c] of [[1.6, -6.6, 0], [2.1, -6.25, 1], [2.5, -6.75, 2]] as const) {
-    const b = bucket(new THREE.Color(p.sprays[c]).getHex(), p.bucketMetal)
-    b.position.set(x, 0, z)
-    g.add(b)
-  }
-  g.add(new THREE.AmbientLight(p.ambient[0], p.ambient[1]))
-  const key = new THREE.DirectionalLight(p.key[0], p.key[1])
-  key.position.set(4, 8, 3)
-  g.add(key)
-  const glowA = new THREE.PointLight(p.glowA[0], p.glowA[1], 11, 1.8)
-  glowA.position.set(-4, 1.6, -6)
-  g.add(glowA)
-  const glowB = new THREE.PointLight(p.glowB[0], p.glowB[1], 10, 1.8)
-  glowB.position.set(3, 1.3, -5.5)
-  g.add(glowB)
-  return finish(g)
-}
-
-/** mech room — duct runs overhead, round drop, air handler, fluorescents */
-export function buildMechRoom(p: MechRoomPalette): BuiltEnvironment {
-  const g = new THREE.Group()
-  g.add(enclosure(p.shell))
-  g.add(floorDisc(p.floor))
-  const back = wallSlab(10, 4.6, p.slab)
-  back.position.z = -8.4
-  g.add(back)
-  const side = wallSlab(8, 4.6, p.sideSlab)
-  side.position.set(-8.2, 0, -1)
-  side.rotation.y = Math.PI / 2.3
-  g.add(side)
-  const main = rectDuct(13, p.duct)
-  main.position.set(0, 3.75, -5)
-  g.add(main)
-  const cross = rectDuct(9, p.duct)
-  cross.position.set(-5.5, 3.35, -0.5)
-  cross.rotation.y = Math.PI / 2
-  g.add(cross)
-  addCyl(g, 0.22, 2.3, std(p.duct, 0.45, 0.75), -3, 2.5, -5)
-  const ahu = airHandler(p.duct, p.louver)
-  ahu.position.set(-3, 0, -6.3)
-  g.add(ahu)
-  // hazard marking around the unit
-  const stripe = std(0xc9a227, 0.8)
-  addBox(g, 2.4, 0.01, 0.12, stripe, -3, 0.006, -5.35)
-  addBox(g, 2.4, 0.01, 0.12, stripe, -3, 0.006, -7.25)
-  addBox(g, 0.12, 0.01, 2.02, stripe, -4.15, 0.006, -6.3)
-  addBox(g, 0.12, 0.01, 2.02, stripe, -1.85, 0.006, -6.3)
-  // riser pipes + valve wheel on the open side
-  for (const x of [4.6, 5.0]) addCyl(g, 0.06, 4.2, std(p.duct, 0.45, 0.75), x, 2.1, 6.5)
-  const valve = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.03, 10, 20), std(0xb23b3b, 0.5, 0.4))
-  valve.position.set(4.8, 1.6, 6.42)
-  g.add(valve)
-  for (let i = 0; i < 7; i++) addBox(g, 2.4, 0.05, 0.06, std(p.louver, 0.6, 0.4), 3.2, 1.3 + i * 0.17, -8.2)
-  for (const [x, z] of [[-1.5, -2.5], [2.5, -4.5]] as const) {
-    addBox(g, 1.5, 0.05, 0.14, emissive(p.fixture, 1.6), x, 4.35, z)
-    const tube = new THREE.PointLight(p.tube[0], p.tube[1], 10, 1.8)
-    tube.position.set(x, 4.1, z)
-    g.add(tube)
   }
   g.add(new THREE.AmbientLight(p.ambient[0], p.ambient[1]))
   const key = new THREE.DirectionalLight(p.key[0], p.key[1])
