@@ -13,7 +13,7 @@ Originally `imta-landing`; renamed when it became the reusable hero for the **se
 | `npm run build` | `tsc && vite build` → `dist/` |
 | `npm run preview` | preview the production build |
 
-Debug hooks (query params / keys): `?env=<id>` picks an environment (`void` / `grid-hall` / `dusk`); `?mesh=a,b,t` holds a static blend of two; `?scroll=0.75` jumps the scroll story; `e` cycles environments; `c` skips to the next rig. The key hooks and the `window.env` console playground are standalone-only — embedded mounts default them off (`debugKeys`).
+Debug hooks (query params / keys): `?env=<id>` picks an environment (`void` / `grid-hall` / `dusk` + the role scenes `circuit` / `pegboard` / `wood` / `solar` / `mural` / `vent`); `?mesh=a,b,t` holds a static blend of two; `?scroll=0.75` jumps the scroll story; `e` cycles environments; `c` skips to the next rig. The key hooks and the `window.env` console playground are standalone-only — embedded mounts default them off (`debugKeys`).
 
 ## Architecture
 
@@ -25,13 +25,14 @@ The app is split into focused modules under `src/`:
 | `hero.ts` | embed entry — `mountHero(container, options?)` |
 | `embed.ts` | host-settable config (`debugKeys`, `maxPixelRatio`, `autoPause`, `assetBase`) written by `mountHero` before boot |
 | `engine.ts` | renderer / scene / camera / composer / env map / scratch pool / resize |
-| `environment.ts` | swappable, blendable environment registry (walls / floor / backdrop / lights) |
+| `environment.ts` | environment manager (crossfade/blend) + builders — prop kit and palette-driven scene builders |
+| `config-data/` | the default scene content as data — environments (palettes), deck cards, labels, rigs — aggregated in `sceneConfig`; the host override layer plugs in here |
 | `figure.ts` | the person model ("Joe") — normalize + materials |
 | `rigs.ts` | camera-rig registry (drone, camera, glasses POV) |
 | `flyers.ts` | the flying rigs, per-frame choreography, PiP feed compositing |
 | `choreography.ts` | the de-synced flight + look-target splines |
 | `director.ts` | camera state machine (follow / blend / drag / wander / scroll) + scroll story |
-| `deck.ts` | the HTML card carousel (occupation cards) |
+| `deck.ts` | the HTML card carousel (occupation cards, from `config-data`); drives the world as cards front |
 | `nametag.ts` | the head-tracking name chip |
 | `loading.ts` | loader UI + GLB loading |
 
@@ -57,7 +58,7 @@ const hero = await mountHero(document.getElementById('hero-root')!, {
 })
 
 // the handle — runtime levers for the host
-hero.environments()                 // ['void', 'grid-hall', 'dusk']
+hero.environments()                 // ['void', 'grid-hall', 'dusk', 'circuit', ...]
 hero.setEnvironment('dusk', 2)      // crossfade (scenes-by-role, see below)
 hero.setPaused(true)                // explicit loop stop (autoPause covers offscreen)
 const off = hero.onScrollProgress((p) => { /* 0..1 scroll story progress */ })
@@ -66,7 +67,7 @@ hero.getScrollRange()               // px of scrollY over which the story runs
 
 `mountHero(container, options?)` injects the hero markup into the container, then dynamically imports the app so its modules boot against the injected DOM. Options land in `embed.ts` config before any app module evaluates, so they apply from the first frame. See **`embed-smoke.html`** for a working in-repo example — open it via the dev server at `/embed-smoke.html`; the scene should match the standalone build.
 
-**Scenes by role** — environments are a registry (`environment.ts`): add an entry and it works with crossfades and blends. A host can pair one environment with each role/section and call `hero.setEnvironment(id)` as that content takes over. Ids are free-form; matching them to the deck's per-occupation `SCENES` keys (`circuit` / `pegboard` / `wood` / `solar` / `mural` / `vent`) keeps cards and worlds 1:1. `onScrollProgress` + `getScrollRange` let the host drive handoff effects from the hero's own scroll math instead of duplicating it.
+**Scenes by role** — the role scenes are places, not wallpaper: each is real geometry (studs and lumber, panel cabinets with conduit, scaffold, duct runs, racked panels) built by a palette-driven builder in `environment.ts`, with its palette exported from `config-data/environments.ts` so a host retunes colors without THREE code. The deck drives the world automatically — when a card fronts, the scene crossfades to the matching environment (ids are 1:1 with the deck's scene keys). Hosts can also steer it explicitly via `hero.setEnvironment(id)`. Next up for the override layer: `mountHero({ scene })` deep-merge over `sceneConfig` (`config-data/index.ts`).
 
 **Host contract:**
 - GLB assets load from `/assets/...` by default — the host must serve `public/assets/{camera,dji_3_mini_pro,person}.glb`, or pass `assetBase` for a sub-path/CDN. Keep copies in sync when bumping the pin; a drifted asset now fails loudly with the URL named in the console.
