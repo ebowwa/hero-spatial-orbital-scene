@@ -13,7 +13,7 @@ Originally `imta-landing`; renamed when it became the reusable hero for the **se
 | `npm run build` | `tsc && vite build` → `dist/` |
 | `npm run preview` | preview the production build |
 
-Debug hooks (query params / keys): `?env=<id>` picks an environment (`void` / `grid-hall` / `dusk`); `?mesh=a,b,t` holds a static blend of two; `?scroll=0.75` jumps the scroll story; `e` cycles environments; `c` skips to the next rig.
+Debug hooks (query params / keys): `?env=<id>` picks an environment (`void` / `grid-hall` / `dusk`); `?mesh=a,b,t` holds a static blend of two; `?scroll=0.75` jumps the scroll story; `e` cycles environments; `c` skips to the next rig. The key hooks and the `window.env` console playground are standalone-only — embedded mounts default them off (`debugKeys`).
 
 ## Architecture
 
@@ -22,7 +22,8 @@ The app is split into focused modules under `src/`:
 | Module | Responsibility |
 | --- | --- |
 | `main.ts` | standalone entry — boots the app |
-| `hero.ts` | embed entry — `mountHero(container)` |
+| `hero.ts` | embed entry — `mountHero(container, options?)` |
+| `embed.ts` | host-settable config (`debugKeys`, `maxPixelRatio`, `autoPause`, `assetBase`) written by `mountHero` before boot |
 | `engine.ts` | renderer / scene / camera / composer / env map / scratch pool / resize |
 | `environment.ts` | swappable, blendable environment registry (walls / floor / backdrop / lights) |
 | `figure.ts` | the person model ("Joe") — normalize + materials |
@@ -43,15 +44,37 @@ The scene is **dual-mode**: standalone (`index.html` → `main.ts`) boots itself
 // (submodule path, workspace package, or installed dependency)
 import { mountHero } from './src/hero.ts'
 
-await mountHero(document.getElementById('hero-root')!)
+const hero = await mountHero(document.getElementById('hero-root')!, {
+  debugKeys: false,    // default when embedded — 'e'/'c' keys + window.env off
+  maxPixelRatio: 1,    // renderer cap; standalone default is 1.5
+  autoPause: true,     // default — loop stops while the canvas is offscreen
+  assetBase: '/',      // default — sub-path or CDN prefix for the GLBs
+  branding: {          // loader wordmark + HUD copy, no post-boot DOM surgery
+    loaderTitle: 'SECONDSEE / LIVE PERCEPTION',
+    headline: 'Every angle.<br />Expert insight.',
+    subline: 'Grab the scene to take control.<br />Scroll to learn more',
+  },
+})
+
+// the handle — runtime levers for the host
+hero.environments()                 // ['void', 'grid-hall', 'dusk']
+hero.setEnvironment('dusk', 2)      // crossfade (scenes-by-role, see below)
+hero.setPaused(true)                // explicit loop stop (autoPause covers offscreen)
+const off = hero.onScrollProgress((p) => { /* 0..1 scroll story progress */ })
+hero.getScrollRange()               // px of scrollY over which the story runs
 ```
 
-`mountHero(container)` injects the hero markup into the container, then dynamically imports the app so its modules boot against the injected DOM. See **`embed-smoke.html`** for a working in-repo example — open it via the dev server at `/embed-smoke.html`; the scene should match the standalone build.
+`mountHero(container, options?)` injects the hero markup into the container, then dynamically imports the app so its modules boot against the injected DOM. Options land in `embed.ts` config before any app module evaluates, so they apply from the first frame. See **`embed-smoke.html`** for a working in-repo example — open it via the dev server at `/embed-smoke.html`; the scene should match the standalone build.
+
+**Scenes by role** — environments are a registry (`environment.ts`): add an entry and it works with crossfades and blends. A host can pair one environment with each role/section and call `hero.setEnvironment(id)` as that content takes over. Ids are free-form; matching them to the deck's per-occupation `SCENES` keys (`circuit` / `pegboard` / `wood` / `solar` / `mural` / `vent`) keeps cards and worlds 1:1. `onScrollProgress` + `getScrollRange` let the host drive handoff effects from the hero's own scroll math instead of duplicating it.
+
+**Host contract:**
+- GLB assets load from `/assets/...` by default — the host must serve `public/assets/{camera,dji_3_mini_pro,person}.glb`, or pass `assetBase` for a sub-path/CDN. Keep copies in sync when bumping the pin; a drifted asset now fails loudly with the URL named in the console.
+- The hero's CSS is page-global (`#scene` is `position: fixed`; `html`/`body` styles apply host-wide) — the host scopes it at build time (see the secondsee landing's `hero-css-scope` vite plugin); the hero side stays byte-identical.
+- Touch scrolling works out of the box: the canvas is `touch-action: pan-y` (vertical swipes scroll the page, horizontal drags orbit).
 
 **Current limits (single-mount, by design):**
-- The hero mounts once and lives for the page lifetime — no unmount/remount or full resource teardown yet (a landing hero isn't unmounted). Graduate to an init-based lifecycle if that changes.
-- The hero's CSS is page-global (`#scene` is `position: fixed`; `html`/`body` styles apply host-wide) — scoping is an integration-time task.
-- GLB assets load from `/assets/...`; a `baseUrl` option is needed to mount under a sub-path.
+- The hero mounts once and lives for the page lifetime — no unmount/remount or full resource teardown yet (a landing hero isn't unmounted). `setPaused` covers the offscreen case; graduate to an init-based lifecycle if mount/unmount on navigation becomes a thing.
 
 ## Status
 
