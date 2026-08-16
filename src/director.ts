@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import { viewCam, canvas, tmpMat, tmpQuat, tmpVecA, tmpVecB, MODEL_HEIGHT } from './engine.ts'
+import { scene, viewCam, canvas, tmpMat, tmpQuat, tmpVecA, tmpVecB, MODEL_HEIGHT } from './engine.ts'
 import { flyers , layoutFeeds, setMainRigTracksEnabled } from './flyers.ts'
 import { setDeckVisibility } from './deck.ts'
 import { embedConfig, isEditableTarget } from './embed.ts'
@@ -121,6 +121,16 @@ window.addEventListener('keydown', (e) => {
 // ---------------------------------------------------------------------------
 
 const trackEl = document.querySelector<HTMLDivElement>('.scroll-track')!
+// story key — the deck crossfades the world to a role scene (e.g. the dim
+// wood shop) while the scroll story is still mid-flight; at the dive beats
+// joe's face then fell into near-black shadow and read as a missing head
+// with floating glasses. This warm spot lights his face for the intimate
+// approach only (ramped in updateViewCam), wherever the world registry
+// happens to be at that moment.
+const storyKey = new THREE.SpotLight(0xffe2c0, 0, 12, Math.PI / 5, 1, 1.2)
+const storyKeyTarget = new THREE.Object3D()
+storyKey.target = storyKeyTarget
+scene.add(storyKey, storyKeyTarget)
 // the blink — full-frame eyelid for the eye pass-through (see updateViewCam);
 // appended last and z-raised above the HUD so nothing paints through it
 const blinkEl = document.createElement('div')
@@ -212,6 +222,7 @@ export function updateViewCam(dt: number, elapsed: number) {
   } else if (scrollP <= 0.02 && camState === 'scroll') {
     controls.enabled = true
     blinkEl.style.opacity = '0'
+    storyKey.intensity = 0
     setMainRigTracksEnabled(true)
     // restore the working near plane (the approach tightens it — see below)
     if (viewCam.near !== 0.05) {
@@ -222,7 +233,7 @@ export function updateViewCam(dt: number, elapsed: number) {
   }
 
   // deck rides the scroll: slides in early, exits as we enter his head
-  const deckVis = smooth01((scrollP - 0.04) / 0.08) * (1 - smooth01((scrollP - 0.55) / 0.15))
+  const deckVis = smooth01((scrollP - 0.04) / 0.08) * (1 - smooth01((scrollP - 0.42) / 0.15))
   setDeckVisibility(deckVis)
   // hero copy bows out as the guided shot begins
   const copyVis = 1 - smooth01((scrollP - 0.03) / 0.15)
@@ -260,6 +271,19 @@ export function updateViewCam(dt: number, elapsed: number) {
     // this close, a legitimate track fills the frame over joe's face
     // (t2 0.2 ≈ scrollP 0.71 — camera inside ~0.7m of his face)
     setMainRigTracksEnabled(t2 < 0.2)
+
+    // story key: once the approach turns intimate, light his face no matter
+    // which world the deck crossfaded to (ramps 0.58 -> 0.75, holds through
+    // the blink; past the swap joe is behind the camera anyway)
+    if (pov) {
+      storyKey.position.set(
+        pov.pos.x + 0.5,
+        pov.pos.y + 1.0,
+        pov.pos.z + 1.4,
+      )
+      storyKeyTarget.position.copy(pov.pos)
+      storyKey.intensity = 4 * smooth01((scrollP - 0.58) / 0.17)
+    }
 
     // quadratic bezier: entry → bow control → approach, expanded by scalars
     // (the two shared scratch vectors are still live: fwd feeds phase 2)
