@@ -40,6 +40,16 @@ export async function setupFigure(): Promise<number> {
             mat.emissiveMap = null
           }
           mat.envMapIntensity = 0.45
+          // his glasses ship with OPAQUE lens materials — the scroll story's
+          // eye dive ends centimeters behind that lens, so an opaque sheet
+          // filled the frame where his face should be (read as a missing
+          // head). Real lenses are see-through; make them translucent and
+          // keep them out of the depth write so they never occlude the eye.
+          if (/glass|lens/i.test(mat.name)) {
+            mat.transparent = true
+            mat.opacity = Math.min(mat.opacity, 0.16)
+            mat.depthWrite = false
+          }
         }
       }
     }
