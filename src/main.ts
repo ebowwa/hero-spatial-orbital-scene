@@ -8,6 +8,8 @@ import {
   renderFeeds,
   compositeFeeds,
   updateFlyer,
+  setTrackedSubjectWidth,
+  updateRigTracks,
 } from './flyers.ts'
 import { initDeck } from './deck.ts'
 import { updateNametag } from './nametag.ts'
@@ -97,6 +99,7 @@ async function boot() {
   }
 
   const [halfArmSpan] = await Promise.all([setupFigure(), setupFlyers()])
+  setTrackedSubjectWidth(halfArmSpan)
   resolvePov()
   buildChoreography(halfArmSpan)
 
@@ -117,6 +120,7 @@ async function boot() {
     for (const f of flyers) updateFlyer(f, elapsed)
     updateEnvironment(dt)
     updateViewCam(dt, elapsed)
+    updateRigTracks(elapsed)
     updateNametag()
     composer.render()
     feedAccum += dt

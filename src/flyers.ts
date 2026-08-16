@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { scene, renderer, MODEL_HEIGHT, tmpMat, forward, zAxis } from './engine.ts'
+import { scene, renderer, viewCam, MODEL_HEIGHT, tmpMat, forward, zAxis } from './engine.ts'
 import { loadGlb } from './loading.ts'
 import { pathCurve, targetCurve } from './choreography.ts'
 import { CAMERA_RIGS, buildRig } from './rigs.ts'
@@ -24,6 +24,11 @@ export interface Flyer {
   spotTarget: THREE.Object3D
   feedEl: HTMLDivElement // its CAMERA FEED box
   feedRect: { x: number; y: number; w: number; h: number }
+  detectionEl: HTMLDivElement // Joe detector overlay inside this rig's feed
+  detectionBoxEl: HTMLDivElement
+  rigTrackEl: HTMLDivElement | null // OC-SORT overlay in the main viewport
+  rigTrackTrailEls: HTMLSpanElement[]
+  rigTrackState: RigTrackState
   // flight plan: where on the shared spline this flyer lives
   pathOffset: number
   targetOffset: number
@@ -43,9 +48,165 @@ export const flyers: Flyer[] = []
 // full-screen ortho overlay used to composite the feed quads over the main pass
 const overlayScene = new THREE.Scene()
 const overlayCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
+let rigTracksEl: HTMLDivElement | null = null
+let rigTrackSafeRightPct = 100
+
+// Joe's detector observation is projected into each physical camera feed.
+let trackedHalfWidth = MODEL_HEIGHT * 0.2
+const TRACKED_HALF_DEPTH = MODEL_HEIGHT * 0.1
+const projectionCorner = new THREE.Vector3()
+const projectionViewCenter = new THREE.Vector3()
+const TRACK_HISTORY_LENGTH = 7
+interface FeedRigWorldTrack {
+  targetIndex: number
+  box: THREE.LineSegments
+}
+
+const feedRigWorldTracks: FeedRigWorldTrack[] = []
+
+interface RigTrackState {
+  historyX: Float32Array
+  historyY: Float32Array
+  historyHead: number
+  historyCount: number
+  lastHistoryAt: number
+}
+
+// Scratch result from projectWorldBox; reused synchronously by both overlay
+// paths so the render loop does not allocate a result object per projection.
+let projectedCx = 0
+let projectedCy = 0
+let projectedWidth = 0
+let projectedHeight = 0
+
+function positionBox(el: HTMLDivElement, cx: number, cy: number, width: number, height: number) {
+  el.style.left = `${(cx - width * 0.5).toFixed(2)}%`
+  el.style.top = `${(cy - height * 0.5).toFixed(2)}%`
+  el.style.width = `${width.toFixed(2)}%`
+  el.style.height = `${height.toFixed(2)}%`
+}
+
+function projectWorldBox(
+  camera: THREE.PerspectiveCamera,
+  cx: number,
+  cy: number,
+  cz: number,
+  halfX: number,
+  halfY: number,
+  halfZ: number,
+): boolean {
+  projectionViewCenter.set(cx, cy, cz).applyMatrix4(camera.matrixWorldInverse)
+  if (projectionViewCenter.z >= -camera.near) return false
+
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  for (let i = 0; i < 8; i++) {
+    projectionCorner
+      .set(
+        cx + (i & 1 ? halfX : -halfX),
+        cy + (i & 2 ? halfY : -halfY),
+        cz + (i & 4 ? halfZ : -halfZ),
+      )
+      .project(camera)
+    minX = Math.min(minX, projectionCorner.x)
+    minY = Math.min(minY, projectionCorner.y)
+    maxX = Math.max(maxX, projectionCorner.x)
+    maxY = Math.max(maxY, projectionCorner.y)
+  }
+
+  if (maxX <= -1 || minX >= 1 || maxY <= -1 || minY >= 1) return false
+  minX = Math.max(minX, -1)
+  maxX = Math.min(maxX, 1)
+  minY = Math.max(minY, -1)
+  maxY = Math.min(maxY, 1)
+  projectedCx = (minX + maxX + 2) * 25
+  projectedCy = (2 - minY - maxY) * 25
+  projectedWidth = (maxX - minX) * 50
+  projectedHeight = (maxY - minY) * 50
+  return projectedWidth > 0 && projectedHeight > 0
+}
+
+function pushRigTrackHistory(f: Flyer, elapsed: number) {
+  const state = f.rigTrackState
+  if (elapsed - state.lastHistoryAt < 0.1) return
+  state.lastHistoryAt = elapsed
+  state.historyX[state.historyHead] = projectedCx
+  state.historyY[state.historyHead] = projectedCy
+  state.historyHead = (state.historyHead + 1) % TRACK_HISTORY_LENGTH
+  state.historyCount = Math.min(state.historyCount + 1, TRACK_HISTORY_LENGTH)
+
+  for (let age = 0; age < TRACK_HISTORY_LENGTH; age++) {
+    const dot = f.rigTrackTrailEls[age]
+    if (age >= state.historyCount) {
+      dot.hidden = true
+      continue
+    }
+    const index = (state.historyHead - 1 - age + TRACK_HISTORY_LENGTH) % TRACK_HISTORY_LENGTH
+    dot.hidden = false
+    dot.style.left = `${state.historyX[index].toFixed(2)}%`
+    dot.style.top = `${state.historyY[index].toFixed(2)}%`
+    dot.style.opacity = String(0.72 * (1 - age / TRACK_HISTORY_LENGTH))
+  }
+}
+
+export function setTrackedSubjectWidth(halfWidth: number) {
+  trackedHalfWidth = halfWidth
+}
+
+function updateFeedDetection(f: Flyer) {
+  f.cam.updateMatrixWorld()
+  if (f.pov) {
+    // Joe cannot appear inside his own glasses-mounted POV.
+    return
+  }
+  if (
+    projectWorldBox(
+      f.cam,
+      0,
+      MODEL_HEIGHT * 0.5,
+      0,
+      trackedHalfWidth,
+      MODEL_HEIGHT * 0.5,
+      TRACKED_HALF_DEPTH,
+    )
+  ) {
+    positionBox(f.detectionBoxEl, projectedCx, projectedCy, projectedWidth, projectedHeight)
+    f.detectionBoxEl.hidden = false
+  } else {
+    f.detectionBoxEl.hidden = true
+  }
+}
+
+/** Project each OC-SORT-eligible external rig into the main hero HUD. */
+export function updateRigTracks(elapsed: number) {
+  viewCam.updateMatrixWorld()
+  for (const f of flyers) {
+    if (!f.rigTrackEl) continue // virtual POV rigs (Joe's glasses) are excluded
+    const half = Math.max(f.def.size * 0.62, 0.1)
+    if (
+      projectWorldBox(viewCam, f.pos.x, f.pos.y, f.pos.z, half, half, half) &&
+      projectedCx + projectedWidth * 0.5 < rigTrackSafeRightPct
+    ) {
+      f.rigTrackEl.hidden = false
+      positionBox(f.rigTrackEl, projectedCx, projectedCy, projectedWidth, projectedHeight)
+      pushRigTrackHistory(f, elapsed)
+    } else {
+      f.rigTrackEl.hidden = true
+      f.rigTrackState.historyCount = 0
+      for (const dot of f.rigTrackTrailEls) dot.hidden = true
+    }
+  }
+}
 
 export async function setupFlyers() {
   const feedsEl = document.querySelector<HTMLDivElement>('#feeds')!
+  const hudRoot = feedsEl.parentElement!
+
+  rigTracksEl = document.createElement('div')
+  rigTracksEl.className = 'hud rig-tracks'
+  hudRoot.appendChild(rigTracksEl)
 
   for (let i = 0; i < CAMERA_RIGS.length; i++) {
     const def = CAMERA_RIGS[i]
@@ -103,7 +264,32 @@ export async function setupFlyers() {
     const led = def.lensColor ?? 0x6ff2ff
     label.innerHTML = `<span style="color:#${led.toString(16).padStart(6, '0')}">◉</span> ${def.label}`
     feedEl.appendChild(label)
+
+    const detectionEl = document.createElement('div')
+    detectionEl.className = 'feed-detection'
+    detectionEl.hidden = def.virtual === true
+    const detectionBoxEl = document.createElement('div')
+    detectionBoxEl.className = 'feed-detection-box'
+    detectionBoxEl.hidden = true
+    detectionEl.appendChild(detectionBoxEl)
+    feedEl.appendChild(detectionEl)
     feedsEl.appendChild(feedEl)
+
+    let rigTrackEl: HTMLDivElement | null = null
+    const rigTrackTrailEls: HTMLSpanElement[] = []
+    if (!def.virtual && def.id !== 'blender-cam') {
+      rigTrackEl = document.createElement('div')
+      rigTrackEl.className = 'hud rig-track-box'
+      rigTrackEl.hidden = true
+      for (let j = 0; j < TRACK_HISTORY_LENGTH; j++) {
+        const dot = document.createElement('span')
+        dot.className = 'rig-track-trail'
+        dot.hidden = true
+        rigTrackTrailEls.push(dot)
+        rigTrackEl.appendChild(dot)
+      }
+      rigTracksEl.appendChild(rigTrackEl)
+    }
 
     flyers.push({
       def,
@@ -115,6 +301,17 @@ export async function setupFlyers() {
       spotTarget,
       feedEl,
       feedRect: { x: 0, y: 0, w: 320, h: 180 },
+      detectionEl,
+      detectionBoxEl,
+      rigTrackEl,
+      rigTrackTrailEls,
+      rigTrackState: {
+        historyX: new Float32Array(TRACK_HISTORY_LENGTH),
+        historyY: new Float32Array(TRACK_HISTORY_LENGTH),
+        historyHead: 0,
+        historyCount: 0,
+        lastHistoryAt: -Infinity,
+      },
       pathOffset: i === 0 ? 0 : 0.45,
       targetOffset: i === 0 ? 0 : 0.5,
       pathSpread: i === 0 ? 1 : 1.22,
@@ -128,6 +325,31 @@ export async function setupFlyers() {
       chasePos: povState ? povState.pos.clone() : new THREE.Vector3(),
       chaseQuat: povState ? povState.quat.clone() : new THREE.Quaternion(),
     })
+  }
+
+  // Feed-level OC-SORT belongs inside the WebGL render target, not in a DOM
+  // layer above it. Build a depth-tested world-space cage for each eligible
+  // external rig; renderFeeds selectively enables it per camera below.
+  for (let targetIndex = 0; targetIndex < flyers.length; targetIndex++) {
+    const target = flyers[targetIndex]
+    if (target.pov || target.def.id === 'blender-cam') continue
+    const size = Math.max(target.def.size * 1.65, 0.3)
+    const box = new THREE.LineSegments(
+      new THREE.EdgesGeometry(new THREE.BoxGeometry(size, size, size)),
+      new THREE.LineBasicMaterial({
+        color: 0xbffcff,
+        depthTest: true,
+        depthWrite: false,
+        toneMapped: false,
+        fog: false,
+      }),
+    )
+    box.name = `feed-track:${target.def.id}`
+    box.visible = false
+    box.frustumCulled = true
+    box.renderOrder = 10
+    scene.add(box)
+    feedRigWorldTracks.push({ targetIndex, box })
   }
 }
 
@@ -168,6 +390,17 @@ export function layoutFeeds(scale: number) {
     f.quad.scale.set(x1 - x0, y1 - y0, 1)
     f.quad.position.set((x0 + x1) / 2, (y0 + y1) / 2, 0)
   }
+
+  // Main-canvas rig tracks must never paint over the camera-feed column.
+  // Clip the shared full-viewport HUD layer at the feeds' live left edge;
+  // this follows responsive sizing and the scroll story's feed scaling.
+  if (rigTracksEl && flyers.length > 0) {
+    let feedLeft = window.innerWidth
+    for (const f of flyers) feedLeft = Math.min(feedLeft, f.feedRect.x)
+    const rightInset = Math.max(window.innerWidth - feedLeft, 0)
+    rigTrackSafeRightPct = (feedLeft / window.innerWidth) * 100
+    rigTracksEl.style.clipPath = `inset(0 ${rightInset}px 0 0)`
+  }
 }
 
 export function measureFeeds() {
@@ -176,14 +409,24 @@ export function measureFeeds() {
 
 /** slow path: re-render each flyer's feed into its render target */
 export function renderFeeds() {
-  for (const f of flyers) {
+  for (let feedIndex = 0; feedIndex < flyers.length; feedIndex++) {
+    const f = flyers[feedIndex]
     f.group.visible = false // the feed is FROM this flyer — it can't see itself
     f.cam.position.copy(f.pos)
     f.cam.quaternion.copy(f.quat)
+    updateFeedDetection(f)
+
+    for (const track of feedRigWorldTracks) {
+      const target = flyers[track.targetIndex]
+      track.box.visible = track.targetIndex !== feedIndex
+      track.box.position.copy(target.pos)
+      track.box.quaternion.copy(target.quat)
+    }
     renderer.setRenderTarget(f.rt)
     renderer.render(scene, f.cam)
     f.group.visible = true
   }
+  for (const track of feedRigWorldTracks) track.box.visible = false
   renderer.setRenderTarget(null)
 }
 
