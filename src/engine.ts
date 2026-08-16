@@ -52,9 +52,11 @@ export const composer = new EffectComposer(renderer)
 composer.addPass(new RenderPass(scene, viewCam))
 const bloom = new UnrealBloomPass(
   new THREE.Vector2(window.innerWidth, window.innerHeight),
-  0.3, // strength
+  0.26, // strength
   0.7, // radius
-  0.78, // threshold
+  0.9, // threshold — high enough that a key light blowing out Joe's scalp
+  // doesn't bloom his hair away into a "glowing bald dome" (the lens dots
+  // and LEDs are pushed above it as HDR emissives instead, see rigs/flyers)
 )
 composer.addPass(bloom)
 composer.addPass(new OutputPass())

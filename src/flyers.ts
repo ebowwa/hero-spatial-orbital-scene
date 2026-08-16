@@ -274,9 +274,12 @@ export async function setupFlyers() {
 
     if (def.virtual) {
       // glasses POV: mount at his LEFT lens (Meta camera side), facing +Z
+      // (color ×1.6 = HDR emissive so the recording LED still blooms)
       const dot = new THREE.Mesh(
         new THREE.SphereGeometry(0.012, 12, 12),
-        new THREE.MeshBasicMaterial({ color: def.lensColor ?? 0xff5a4a }), // recording LED
+        new THREE.MeshBasicMaterial({
+          color: new THREE.Color(def.lensColor ?? 0xff5a4a).multiplyScalar(1.6),
+        }),
       )
       group.add(dot)
       const pos = new THREE.Vector3(-0.075, MODEL_HEIGHT * 0.926, 0.15)

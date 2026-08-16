@@ -71,10 +71,14 @@ export async function buildRig(def: CameraRigDef, loadGlb: GlbLoader): Promise<T
   defaultStylize(rig)
   def.stylize?.(rig)
 
-  // lens marker so the rig's facing reads from across the scene
+  // lens marker so the rig's facing reads from across the scene — the color
+  // is multiplied past 1.0 so the dot clears the bloom threshold (an HDR
+  // emissive: it glows, lit skin doesn't)
   const lens = new THREE.Mesh(
     new THREE.SphereGeometry(def.lensRadius ?? 0.032, 16, 16),
-    new THREE.MeshBasicMaterial({ color: def.lensColor ?? 0x7fdce8 }),
+    new THREE.MeshBasicMaterial({
+      color: new THREE.Color(def.lensColor ?? 0x7fdce8).multiplyScalar(1.6),
+    }),
   )
   lens.position.set(...def.lensOffset)
 
