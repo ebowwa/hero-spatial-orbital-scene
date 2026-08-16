@@ -77,7 +77,7 @@ export async function buildRig(def: CameraRigDef, loadGlb: GlbLoader): Promise<T
   const lens = new THREE.Mesh(
     new THREE.SphereGeometry(def.lensRadius ?? 0.032, 16, 16),
     new THREE.MeshBasicMaterial({
-      color: new THREE.Color(def.lensColor ?? 0x7fdce8).multiplyScalar(1.6),
+      color: new THREE.Color(def.lensColor ?? 0x7fdce8).multiplyScalar(2.4),
     }),
   )
   lens.position.set(...def.lensOffset)
