@@ -121,6 +121,11 @@ window.addEventListener('keydown', (e) => {
 // ---------------------------------------------------------------------------
 
 const trackEl = document.querySelector<HTMLDivElement>('.scroll-track')!
+// the blink — full-frame eyelid for the eye pass-through (see updateViewCam);
+// appended last and z-raised above the HUD so nothing paints through it
+const blinkEl = document.createElement('div')
+blinkEl.className = 'hud blink'
+trackEl.parentElement!.appendChild(blinkEl)
 let scrollP = 0
 let lastAppliedFeedScale = 1
 const scrollEntryPos = new THREE.Vector3()
@@ -206,6 +211,7 @@ export function updateViewCam(dt: number, elapsed: number) {
     controls.enabled = false
   } else if (scrollP <= 0.02 && camState === 'scroll') {
     controls.enabled = true
+    blinkEl.style.opacity = '0'
     // restore the working near plane (the approach tightens it — see below)
     if (viewCam.near !== 0.05) {
       viewCam.near = 0.05
@@ -226,8 +232,10 @@ export function updateViewCam(dt: number, elapsed: number) {
     lastAppliedFeedScale = targetFeedScale
     layoutFeeds(targetFeedScale)
   }
-  // feeds step back once we're about to become joe's pov
-  const feedsVis = 1 - smooth01((scrollP - 0.6) / 0.2)
+  // feeds dim (not vanish) once we become joe's pov — the tracking HUD is
+  // the story's payoff and must stay legible until the host's handoff slides
+  // over; cutting it to zero at 0.8 read as a UI-state bug, not a beat
+  const feedsVis = 1 - 0.65 * smooth01((scrollP - 0.6) / 0.2)
   feedsEl.style.opacity = String(feedsVis)
 
   // handheld micro-shake, only while locked onto a rig
@@ -275,8 +283,17 @@ export function updateViewCam(dt: number, elapsed: number) {
 
     tmpMat.lookAt(viewCam.position, pov.pos, viewCam.up)
     tmpQuat.setFromRotationMatrix(tmpMat)
-    tmpQuat.slerp(pov.quat, t2)
+    tmpQuat.slerp(pov.quat, smooth01((t2 - 0.88) / 0.12))
     viewCam.quaternion.slerpQuaternions(scrollEntryQuat, tmpQuat, t1)
+
+    // the blink: a full-frame eyelid that closes as we reach his eye and
+    // opens on his POV, covering the ~180° orientation swap above (arrived
+    // looking AT joe, leave looking WITH him — running that turn across all
+    // of t2 aimed the camera sideways into an empty room mid-turn while
+    // joe slid out of frame)
+    blinkEl.style.opacity = String(
+      Math.min(smooth01((t2 - 0.8) / 0.1), 1 - smooth01((t2 - 0.94) / 0.06)),
+    )
 
     chip(t2 > 0.6 ? "JOE'S POV" : 'GUIDED TO JOE')
   } else if (camState === 'follow') {

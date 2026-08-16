@@ -23,6 +23,8 @@ export interface Flyer {
   rt: THREE.WebGLRenderTarget // its feed, re-rendered at FEED_FPS
   quad: THREE.Mesh // screen-space quad displaying rt every frame
   spotTarget: THREE.Object3D
+  keySpot?: THREE.SpotLight // feathered by proximity to joe in updateFlyer
+  fillPoint?: THREE.PointLight
   feedEl: HTMLDivElement // its CAMERA FEED box
   feedRect: { x: number; y: number; w: number; h: number }
   detectionEl: HTMLDivElement // Joe detector overlay inside this rig's feed
@@ -271,6 +273,8 @@ export async function setupFlyers() {
       | undefined
     const spotTarget = new THREE.Object3D()
     scene.add(spotTarget)
+    let spot: THREE.SpotLight | undefined
+    let fillPoint: THREE.PointLight | undefined
 
     if (def.virtual) {
       // glasses POV: mount at his LEFT lens (Meta camera side), facing +Z
@@ -292,10 +296,12 @@ export async function setupFlyers() {
       povState = { pos, quat }
     } else {
       // the key light this flyer carries — it lights whatever the flyer films
-      const spot = new THREE.SpotLight(0xd8fbff, 6, 30, Math.PI / 4.2, 0.65, 1.4)
+      // (intensity is feathered by proximity to joe in updateFlyer)
+      spot = new THREE.SpotLight(0xd8fbff, 6, 30, Math.PI / 4.2, 0.65, 1.4)
       group.add(spot)
       spot.target = spotTarget
-      group.add(new THREE.PointLight(0x66e5f2, 0.8, 4, 2))
+      fillPoint = new THREE.PointLight(0x66e5f2, 0.8, 4, 2)
+      group.add(fillPoint)
     }
     scene.add(group)
 
@@ -364,6 +370,8 @@ export async function setupFlyers() {
       rt,
       quad,
       spotTarget,
+      keySpot: spot,
+      fillPoint,
       feedEl,
       feedRect: { x: 0, y: 0, w: 320, h: 180 },
       detectionEl,
@@ -528,4 +536,20 @@ export function updateFlyer(f: Flyer, elapsed: number) {
   f.chaseQuat.setFromRotationMatrix(tmpMat)
 
   f.spotTarget.position.copy(f.lookPos)
+
+  // feather the key/fill by proximity to joe: the orbit's "tight on the
+  // head" pass puts a rig ~1.5m out, where an un-feathered intensity-6 spot
+  // blows his scalp out to pure white (review: "bald glowing dome", main
+  // pass only — the feed targets render direct, no bloom). Full intensity
+  // beyond 2.2m, eased down to a floor near 0.9m so he never goes flat.
+  if (f.keySpot) {
+    const dy = Math.min(Math.max(f.pos.y, 0), MODEL_HEIGHT)
+    const d = Math.sqrt(
+      f.pos.x * f.pos.x + f.pos.z * f.pos.z + (f.pos.y - dy) * (f.pos.y - dy),
+    )
+    const k = Math.min(Math.max((d - 0.9) / 1.3, 0), 1)
+    const feather = k * k * (3 - 2 * k)
+    f.keySpot.intensity = 0.9 + 5.1 * feather
+    if (f.fillPoint) f.fillPoint.intensity = 0.15 + 0.65 * feather
+  }
 }
