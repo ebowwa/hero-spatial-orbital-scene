@@ -139,6 +139,7 @@ export async function mountHero(
   // host config must land before the app modules evaluate (engine reads
   // maxPixelRatio at import time, loading.ts reads assetBase per fetch, key
   // handlers read debugKeys at event time)
+  embedConfig.embedded = true
   embedConfig.debugKeys = options.debugKeys ?? false
   embedConfig.maxPixelRatio = options.maxPixelRatio ?? 1.5
   embedConfig.assetBase = options.assetBase ?? ''

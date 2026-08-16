@@ -6,6 +6,10 @@
 // ---------------------------------------------------------------------------
 
 export const embedConfig = {
+  // true once a host mounts the hero via mountHero() — standalone behavior
+  // (index.html -> main.ts) leaves this false
+  embedded: false,
+
   // debug keyboard shortcuts: 'e' cycles environments, 'c' skips to the next
   // rig. Off when embedded — host pages have real users typing, and bare
   // single-letter shortcuts (and Cmd/Ctrl+C!) would fire on them.

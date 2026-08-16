@@ -7,6 +7,7 @@
 // ---------------------------------------------------------------------------
 
 import { transitionTo, ENVIRONMENTS } from './environment.ts'
+import { embedConfig } from './embed.ts'
 import { sceneConfig } from './config-data/index.ts'
 import type { OccCard, JoeCardContent } from './config-data/types.ts'
 
@@ -18,10 +19,16 @@ const JOE_CARD = deckContent.joe
 // scenes by role — the world crossfades to the front card's scene
 // (environment ids match SCENES keys 1:1). Only while the deck is actually
 // visible, so a hidden deck never repaints the world underneath the story.
+// Standalone only: in an embedded host the story runs long after the deck
+// bows out, and a world morph landing mid-dive both muddies the climax and
+// (observed on the secondsee landing) coincided with the figure's head
+// meshes dropping out of the main pass around the 80% beat. Hosts drive
+// environments through the mountHero handle if they want scenes-by-role.
 let currentScene = JOE_CARD.scene
 let lastVis = 0
 
 function syncWorldToCard() {
+  if (embedConfig.embedded) return
   // role scenes ship one at a time — hold the current world for cards
   // whose scene isn't registered yet
   if (lastVis > 0.5 && ENVIRONMENTS.some((e) => e.id === currentScene)) {
