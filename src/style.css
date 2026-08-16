@@ -181,7 +181,22 @@ html, body {
   box-sizing: border-box;
   min-width: 8px;
   min-height: 8px;
-  border: 1px dashed rgba(255, 195, 107, 0.7);
+  border: 1px dashed rgba(255, 195, 107, 0.95);
+}
+/* detector output tag — the tracked subject's ID in the same microtype
+   language as the feed labels/chips, so the box reads as OC-SORT output
+   rather than a selection marquee (amber = person, cyan = rig) */
+.feed-detection-box::after {
+  content: 'JOE';
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  font-size: 8px;
+  letter-spacing: 0.25em;
+  color: #ffc36b;
+  background: rgba(2, 20, 26, 0.75);
+  padding: 2px 5px 2px 6px;
+  white-space: nowrap;
 }
 /* ---------- OC-SORT: eligible external rigs in the main viewport ---------- */
 .rig-tracks {

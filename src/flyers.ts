@@ -50,6 +50,9 @@ const overlayScene = new THREE.Scene()
 const overlayCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
 let rigTracksEl: HTMLDivElement | null = null
 let rigTrackSafeRightPct = 100
+// bottom band (the .hud-bottom strip) kept clear of rig-track brackets so
+// tracks never collide with the mode chip or host chrome over that band
+const RIG_TRACK_BOTTOM_RESERVE = 76
 
 // Joe's detector observation is projected into each physical camera feed.
 let trackedHalfWidth = MODEL_HEIGHT * 0.2
@@ -174,6 +177,11 @@ function updateFeedDetection(f: Flyer) {
   ) {
     positionBox(f.detectionBoxEl, projectedCx, projectedCy, projectedWidth, projectedHeight)
     f.detectionBoxEl.hidden = false
+    // when the subject fills the frame the box collapses into the feed's own
+    // border and reads as a styling bug — fade to a "partial / too close"
+    // state instead of drawing a full-tile marquee
+    const degenerate = projectedWidth > 92 || projectedHeight > 92
+    f.detectionBoxEl.style.opacity = degenerate ? '0.28' : '1'
   } else {
     f.detectionBoxEl.hidden = true
   }
@@ -391,15 +399,18 @@ export function layoutFeeds(scale: number) {
     f.quad.position.set((x0 + x1) / 2, (y0 + y1) / 2, 0)
   }
 
-  // Main-canvas rig tracks must never paint over the camera-feed column.
-  // Clip the shared full-viewport HUD layer at the feeds' live left edge;
-  // this follows responsive sizing and the scroll story's feed scaling.
+  // Main-canvas rig tracks must never paint over the camera-feed column or
+  // the bottom HUD band (mode-chip strip — and, when embedded, whatever host
+  // chrome rides over that band). Clip the shared full-viewport HUD layer at
+  // the feeds' live left edge with a bottom reserve; this follows responsive
+  // sizing and the scroll story's feed scaling. Tracks clipped at a frame
+  // edge is exactly how real tracking UIs behave, so no visibility change.
   if (rigTracksEl && flyers.length > 0) {
     let feedLeft = window.innerWidth
     for (const f of flyers) feedLeft = Math.min(feedLeft, f.feedRect.x)
     const rightInset = Math.max(window.innerWidth - feedLeft, 0)
     rigTrackSafeRightPct = (feedLeft / window.innerWidth) * 100
-    rigTracksEl.style.clipPath = `inset(0 ${rightInset}px 0 0)`
+    rigTracksEl.style.clipPath = `inset(${RIG_TRACK_BOTTOM_RESERVE}px ${rightInset}px 0 0)`
   }
 }
 
