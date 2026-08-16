@@ -21,26 +21,38 @@ const loaderStatus = document.querySelector<HTMLDivElement>('#loader-status')!
 const fileProgress = new Map<string, { loaded: number; total: number }>()
 const loaderShownAt = performance.now()
 
+// hybrid progress: bytes stream smoothly on a cold network, but the host
+// page preloads the GLBs, so fetches often complete at once from cache —
+// and the wall-clock gap is then the main-thread GLB PARSE, which has no
+// progress events. Items-done (each = fetch + parse of one model) puts a
+// step in the bar per rig, and the status line names the rig in flight.
+function fileLabel(url: string): string {
+  const base = url.split('/').pop() ?? url
+  if (base.startsWith('person')) return 'FIGURE'
+  if (base.startsWith('dji')) return 'DRONE'
+  if (base.startsWith('camera')) return 'CAMERA'
+  return base.replace(/\.glb$/i, '').slice(0, 10).toUpperCase()
+}
+
 function paintProgress() {
   let loaded = 0
   let total = 0
-  for (const p of fileProgress.values()) {
+  let done = 0
+  let inflight = ''
+  for (const [url, p] of fileProgress) {
     loaded += p.loaded
     if (p.total > 0) total += p.total
+    if (p.total > 0 && p.loaded >= p.total) done++
+    else if (!inflight) inflight = fileLabel(url)
   }
-  const pct = total > 0 ? Math.round(Math.min(loaded / total, 1) * 100) : 0
+  const count = fileProgress.size
+  const bytePct = total > 0 ? Math.min(loaded / total, 1) : 0
+  const itemPct = count > 0 ? done / count : 0
+  const pct = Math.round(Math.max(bytePct, itemPct) * 100)
   loaderFill.style.width = `${pct}%`
   loaderPct.textContent = `${pct}%`
   loaderStatus.textContent =
-    pct >= 100
-      ? 'LIVE'
-      : pct >= 75
-        ? 'STABILIZING VIEW'
-        : pct >= 40
-          ? 'CALIBRATING TRACKERS'
-          : pct > 0
-            ? 'LINKING FEEDS'
-            : 'CONNECTING RIGS'
+    pct >= 100 ? 'LIVE' : inflight ? `LINKING ${inflight}` : 'CONNECTING RIGS'
 }
 
 const manager = new THREE.LoadingManager()

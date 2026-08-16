@@ -30,6 +30,12 @@ export async function setupFigure(): Promise<number> {
 
   root.traverse((obj) => {
     if (obj instanceof THREE.Mesh) {
+      // never frustum-cull figure meshes: the export's bounding spheres are
+      // unreliable, which dropped the HAIR (and only the hair) whenever the
+      // camera got close enough for the head to fill the screen — Joe went
+      // bald at mid-range and during the eye dive. The figure is the subject
+      // and is always in frame, so culling buys nothing anyway.
+      obj.frustumCulled = false
       const mats = Array.isArray(obj.material) ? obj.material : [obj.material]
       for (const mat of mats) {
         if (mat && mat.isMeshStandardMaterial) {
