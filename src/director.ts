@@ -258,7 +258,8 @@ export function updateViewCam(dt: number, elapsed: number) {
     const t2 = smooth01((scrollP - 0.64) / 0.3)
     // main-viewport OC-SORT brackets bow out for the intimate approach:
     // this close, a legitimate track fills the frame over joe's face
-    setMainRigTracksEnabled(t2 < 0.45)
+    // (t2 0.2 ≈ scrollP 0.71 — camera inside ~0.7m of his face)
+    setMainRigTracksEnabled(t2 < 0.2)
 
     // quadratic bezier: entry → bow control → approach, expanded by scalars
     // (the two shared scratch vectors are still live: fwd feeds phase 2)
