@@ -52,9 +52,10 @@ export const composer = new EffectComposer(renderer)
 composer.addPass(new RenderPass(scene, viewCam))
 const bloom = new UnrealBloomPass(
   new THREE.Vector2(window.innerWidth, window.innerHeight),
-  0.22, // strength
+  0.2, // strength
   0.7, // radius
-  1.1, // threshold — lit skin (key + rim + ambient) stays just under it; a
+  1.3, // threshold — lit skin AND dark hair (key + rim + ambient + story key)
+  // stay under it; a
   // key light swinging close must not bloom Joe's hair away into a "glowing
   // bald dome" (the lens dots and LEDs clear it as HDR emissives, see rigs)
 )

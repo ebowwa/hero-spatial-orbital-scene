@@ -74,6 +74,13 @@ html, body {
   color: var(--ink-dim);
   letter-spacing: 0.2em;
 }
+#loader-status {
+  margin-top: 8px;
+  font-size: 9px;
+  color: var(--ink-dim);
+  letter-spacing: 0.3em;
+  opacity: 0.75;
+}
 
 /* ---------- HUD ---------- */
 .hud { position: fixed; z-index: 10; pointer-events: none; }
@@ -280,6 +287,64 @@ html, body {
   background: var(--accent);
   box-shadow: 0 0 7px rgba(111, 242, 255, 0.8);
   transform: translate(-50%, -50%);
+}
+
+
+/* ---------- boot reveal: staged HUD entrance once assets are live ----------
+   Everything used to pop in the instant the loader dropped — headline, chip,
+   three feeds, nametag — a wall of text landing at once. Each element now
+   enters on its own beat: hideLoader() adds .hero-live to each, and these
+   compound rules light them up in sequence. */
+.hud-copy h1,
+.hud-copy p,
+#mode-chip,
+#feeds .feed-box,
+#nametag {
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.55s ease, transform 0.55s ease;
+  will-change: opacity, transform;
+}
+#feeds .feed-box {
+  transform: translateX(16px);
+}
+#nametag {
+  transform: scale(0.8);
+}
+.hud-copy h1.hero-live {
+  opacity: 1;
+  transform: none;
+  transition-delay: 0.05s;
+}
+.hud-copy p.hero-live {
+  opacity: 1;
+  transform: none;
+  transition-delay: 0.22s;
+}
+#mode-chip.hero-live {
+  opacity: 1;
+  transform: none;
+  transition-delay: 0.38s;
+}
+#feeds .feed-box:nth-child(1).hero-live {
+  opacity: 1;
+  transform: none;
+  transition-delay: 0.5s;
+}
+#feeds .feed-box:nth-child(2).hero-live {
+  opacity: 1;
+  transform: none;
+  transition-delay: 0.62s;
+}
+#feeds .feed-box:nth-child(3).hero-live {
+  opacity: 1;
+  transform: none;
+  transition-delay: 0.74s;
+}
+#nametag.hero-live {
+  opacity: 1;
+  transform: none;
+  transition-delay: 0.9s;
 }
 
 @media (max-width: 900px) {

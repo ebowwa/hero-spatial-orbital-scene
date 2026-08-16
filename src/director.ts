@@ -285,13 +285,13 @@ export function updateViewCam(dt: number, elapsed: number) {
     // face sees a CONSTANT fill at any range — a fixed intensity blew the
     // forehead to white once the dive got inside half a meter.
     if (pov) {
-      storyKey.position.set(pov.pos.x + 0.35, pov.pos.y + 0.35, pov.pos.z + 1.5)
+      storyKey.position.set(pov.pos.x + 0.4, pov.pos.y + 0.4, pov.pos.z + 1.9)
       storyKeyTarget.position.copy(pov.pos)
       const ramp = smooth01((scrollP - 0.58) / 0.17)
-      storyKey.intensity = 4 * ramp
+      storyKey.intensity = 2.6 * ramp
       storyFill.position.copy(viewCam.position)
       const d = viewCam.position.distanceTo(pov.pos)
-      storyFill.intensity = ramp * Math.min(0.9 * d * d, 2.2)
+      storyFill.intensity = ramp * Math.min(0.6 * d * d, 1.4)
     }
 
     // quadratic bezier: entry → bow control → approach, expanded by scalars

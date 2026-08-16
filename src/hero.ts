@@ -49,6 +49,7 @@ function heroMarkup(branding: HeroBranding): string {
         <div class="loader-title">${b.loaderTitle}</div>
         <div class="loader-bar"><div id="loader-fill"></div></div>
         <div id="loader-pct">0%</div>
+        <div id="loader-status">CONNECTING RIGS</div>
       </div>
     </div>
     <div class="hud hud-copy">

@@ -303,7 +303,7 @@ export async function setupFlyers() {
       const dot = new THREE.Mesh(
         new THREE.SphereGeometry(0.008, 12, 12),
         new THREE.MeshBasicMaterial({
-          color: new THREE.Color(def.lensColor ?? 0xff5a4a).multiplyScalar(1.4),
+          color: new THREE.Color(def.lensColor ?? 0xff5a4a).multiplyScalar(1.8),
         }),
       )
       group.add(dot)
@@ -580,9 +580,9 @@ export function updateFlyer(f: Flyer, elapsed: number) {
     }
     if (d < gafferMin) gafferMin = d
     const isKey = d <= gafferPrevMin + 1e-9
-    // 0.95 holds the subject just under the bloom threshold once the rim
+    // 0.8 holds the subject well under the bloom threshold once the rim
     // (0.7 directional from above) and ambient stack on top of the key
-    const key = Math.min(0.95 * Math.pow(d, 1.4), 6)
+    const key = Math.min(0.8 * Math.pow(d, 1.4), 6)
     f.keySpot.intensity = isKey ? key : key * 0.25
     if (f.fillPoint) f.fillPoint.intensity = isKey ? 0.6 : 0.15
   }
