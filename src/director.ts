@@ -281,14 +281,17 @@ export function updateViewCam(dt: number, elapsed: number) {
     // story key: once the approach turns intimate, light his face no matter
     // which world the deck crossfaded to (ramps 0.58 -> 0.75, holds through
     // the blink; past the swap joe is behind the camera anyway). The fill
-    // rides the camera so the read never depends on distance.
+    // rides the camera with intensity ∝ distance² (its own decay), so the
+    // face sees a CONSTANT fill at any range — a fixed intensity blew the
+    // forehead to white once the dive got inside half a meter.
     if (pov) {
       storyKey.position.set(pov.pos.x + 0.35, pov.pos.y + 0.35, pov.pos.z + 1.5)
       storyKeyTarget.position.copy(pov.pos)
       const ramp = smooth01((scrollP - 0.58) / 0.17)
-      storyKey.intensity = 6 * ramp
-      storyFill.intensity = 2.2 * ramp
+      storyKey.intensity = 4 * ramp
       storyFill.position.copy(viewCam.position)
+      const d = viewCam.position.distanceTo(pov.pos)
+      storyFill.intensity = ramp * Math.min(0.9 * d * d, 2.2)
     }
 
     // quadratic bezier: entry → bow control → approach, expanded by scalars

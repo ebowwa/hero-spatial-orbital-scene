@@ -296,12 +296,14 @@ export async function setupFlyers() {
     let fillPoint: THREE.PointLight | undefined
 
     if (def.virtual) {
-      // glasses POV: mount at his LEFT lens (Meta camera side), facing +Z
-      // (color ×1.6 = HDR emissive so the recording LED still blooms)
+      // glasses POV: mount at his LEFT lens (Meta camera side), facing +Z.
+      // The recording LED sits where the eye dive ends — at centimeters it
+      // spanned half the frame as a blown disc, so it stays small and only
+      // mildly HDR (×1.4), unlike the distant rig lens dots (×2.4).
       const dot = new THREE.Mesh(
-        new THREE.SphereGeometry(0.012, 12, 12),
+        new THREE.SphereGeometry(0.008, 12, 12),
         new THREE.MeshBasicMaterial({
-          color: new THREE.Color(def.lensColor ?? 0xff5a4a).multiplyScalar(2.4),
+          color: new THREE.Color(def.lensColor ?? 0xff5a4a).multiplyScalar(1.4),
         }),
       )
       group.add(dot)
