@@ -125,6 +125,10 @@ let scrollP = 0
 let lastAppliedFeedScale = 1
 const scrollEntryPos = new THREE.Vector3()
 const scrollEntryQuat = new THREE.Quaternion()
+// bezier control that bows the phase-1 glide AROUND joe instead of through
+// him: a straight lerp from a behind-him entry slices the skull, and the
+// near plane + backface culling then make his head vanish mid-flight
+const scrollBowCtrl = new THREE.Vector3()
 
 // hosts read the story progress here instead of re-deriving it from their
 // own copy of the track geometry (the handoff math stays in sync by
@@ -188,10 +192,25 @@ export function updateViewCam(dt: number, elapsed: number) {
   if (scrollP > 0.02 && camState !== 'scroll') {
     scrollEntryPos.copy(viewCam.position)
     scrollEntryQuat.copy(viewCam.quaternion)
+    // bow control: pushed away from joe's head from the entry→approach
+    // midpoint, so the glide always arcs around him, never through him
+    if (pov) {
+      const bowFwd = tmpVecA.set(0, 0, -1).applyQuaternion(pov.quat)
+      const approach = tmpVecB.copy(pov.pos).addScaledVector(bowFwd, 0.85)
+      scrollBowCtrl.copy(scrollEntryPos).add(approach).multiplyScalar(0.5)
+      scrollBowCtrl.sub(pov.pos).setY(Math.max(scrollBowCtrl.y, 0.35))
+      if (scrollBowCtrl.lengthSq() < 1e-6) scrollBowCtrl.set(0, 1, 0)
+      scrollBowCtrl.normalize().multiplyScalar(1.15).add(pov.pos)
+    }
     camState = 'scroll'
     controls.enabled = false
   } else if (scrollP <= 0.02 && camState === 'scroll') {
     controls.enabled = true
+    // restore the working near plane (the approach tightens it — see below)
+    if (viewCam.near !== 0.05) {
+      viewCam.near = 0.05
+      viewCam.updateProjectionMatrix()
+    }
     blendToRig(followIndex)
   }
 
@@ -221,15 +240,38 @@ export function updateViewCam(dt: number, elapsed: number) {
   rideQuat.copy(followed.chaseQuat).multiply(shakeQuat)
 
   if (camState === 'scroll') {
-    // phase 1: glide from wherever we were to just in front of his face
+    // phase 1: glide from wherever we were to just in front of his face —
+    //          on a bezier that bows AROUND joe (see scrollBowCtrl)
     // phase 2: pass through his eye — the viewport becomes the glasses feed
     const fwd = tmpVecA.set(0, 0, -1).applyQuaternion(pov.quat)
     const approach = tmpVecB.copy(pov.pos).addScaledVector(fwd, 0.85)
     const t1 = smooth01((scrollP - 0.06) / 0.49)
     const t2 = smooth01((scrollP - 0.64) / 0.3)
 
-    viewCam.position.lerpVectors(scrollEntryPos, approach, t1)
+    // quadratic bezier: entry → bow control → approach, expanded by scalars
+    // (the two shared scratch vectors are still live: fwd feeds phase 2)
+    const u = 1 - t1
+    const b0 = u * u
+    const b1 = 2 * u * t1
+    const b2 = t1 * t1
+    viewCam.position.set(
+      b0 * scrollEntryPos.x + b1 * scrollBowCtrl.x + b2 * approach.x,
+      b0 * scrollEntryPos.y + b1 * scrollBowCtrl.y + b2 * approach.y,
+      b0 * scrollEntryPos.z + b1 * scrollBowCtrl.z + b2 * approach.z,
+    )
     viewCam.position.lerp(tmpVecB.copy(pov.pos).addScaledVector(fwd, 0.03), t2)
+
+    // near plane: the approach ends 3cm from his eye, but the working near
+    // plane is 5cm — everything closer than that is clipped, which sheared
+    // off his hair first (bald joe), then his face (headless joe, glasses
+    // floating — they're the only doubleSided parts), and left a see-through
+    // hole where rigs behind him shone through his body. Tighten to 1.2cm
+    // as we close in; depth precision at this scene's scale is unaffected.
+    const targetNear = 0.05 - 0.038 * smooth01((scrollP - 0.5) / 0.42)
+    if (Math.abs(viewCam.near - targetNear) > 1e-4) {
+      viewCam.near = targetNear
+      viewCam.updateProjectionMatrix()
+    }
 
     tmpMat.lookAt(viewCam.position, pov.pos, viewCam.up)
     tmpQuat.setFromRotationMatrix(tmpMat)
