@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { viewCam, canvas, tmpMat, tmpQuat, tmpVecA, tmpVecB, MODEL_HEIGHT } from './engine.ts'
-import { flyers , layoutFeeds } from './flyers.ts'
+import { flyers , layoutFeeds, setMainRigTracksEnabled } from './flyers.ts'
 import { setDeckVisibility } from './deck.ts'
 import { embedConfig, isEditableTarget } from './embed.ts'
 
@@ -212,6 +212,7 @@ export function updateViewCam(dt: number, elapsed: number) {
   } else if (scrollP <= 0.02 && camState === 'scroll') {
     controls.enabled = true
     blinkEl.style.opacity = '0'
+    setMainRigTracksEnabled(true)
     // restore the working near plane (the approach tightens it — see below)
     if (viewCam.near !== 0.05) {
       viewCam.near = 0.05
@@ -235,7 +236,7 @@ export function updateViewCam(dt: number, elapsed: number) {
   // feeds dim (not vanish) once we become joe's pov — the tracking HUD is
   // the story's payoff and must stay legible until the host's handoff slides
   // over; cutting it to zero at 0.8 read as a UI-state bug, not a beat
-  const feedsVis = 1 - 0.65 * smooth01((scrollP - 0.6) / 0.2)
+  const feedsVis = 1 - 0.55 * smooth01((scrollP - 0.6) / 0.2)
   feedsEl.style.opacity = String(feedsVis)
 
   // handheld micro-shake, only while locked onto a rig
@@ -255,6 +256,9 @@ export function updateViewCam(dt: number, elapsed: number) {
     const approach = tmpVecB.copy(pov.pos).addScaledVector(fwd, 0.85)
     const t1 = smooth01((scrollP - 0.06) / 0.49)
     const t2 = smooth01((scrollP - 0.64) / 0.3)
+    // main-viewport OC-SORT brackets bow out for the intimate approach:
+    // this close, a legitimate track fills the frame over joe's face
+    setMainRigTracksEnabled(t2 < 0.45)
 
     // quadratic bezier: entry → bow control → approach, expanded by scalars
     // (the two shared scratch vectors are still live: fwd feeds phase 2)

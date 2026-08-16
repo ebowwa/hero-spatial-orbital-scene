@@ -226,8 +226,27 @@ function updateFeedTracks(f: Flyer) {
   }
 }
 
+// main-viewport brackets are gated by the director: once the scroll story
+// dives into joe's face, a legitimate track fills the frame over him and
+// reads as noise, not perception
+let mainTracksEnabled = true
+
+export function setMainRigTracksEnabled(enabled: boolean) {
+  if (mainTracksEnabled === enabled) return
+  mainTracksEnabled = enabled
+  if (!enabled) {
+    for (const f of flyers) {
+      if (!f.rigTrackEl) continue
+      f.rigTrackEl.hidden = true
+      f.rigTrackState.historyCount = 0
+      for (const dot of f.rigTrackTrailEls) dot.hidden = true
+    }
+  }
+}
+
 /** Project each OC-SORT-eligible external rig into the main hero HUD. */
 export function updateRigTracks(elapsed: number) {
+  if (!mainTracksEnabled) return
   viewCam.updateMatrixWorld()
   viewCam.getWorldPosition(trackCamPos)
   for (const f of flyers) {
@@ -537,19 +556,34 @@ export function updateFlyer(f: Flyer, elapsed: number) {
 
   f.spotTarget.position.copy(f.lookPos)
 
-  // feather the key/fill by proximity to joe: the orbit's "tight on the
-  // head" pass puts a rig ~1.5m out, where an un-feathered intensity-6 spot
-  // blows his scalp out to pure white (review: "bald glowing dome", main
-  // pass only — the feed targets render direct, no bloom). Full intensity
-  // beyond 2.2m, eased down to a floor near 0.9m so he never goes flat.
+  // Constant-exposure key light + gaffer assignment. The scalp blowouts
+  // ("bald glowing dome") came from spot irradiance rising as a rig's orbit
+  // closes in: intensity 6 at 1.4m hits ~3x harder than the 3m reference
+  // the scene was lit for, and two rigs near simultaneously stack. So:
+  //   - each spot's intensity scales with d^1.4 (its decay), holding the
+  //     subject's irradiance at the 3m reference no matter the distance,
+  //     capped at 6 so far rigs don't exceed the classic look;
+  //   - only the closest rig is the KEY each frame; the other drops to a
+  //     fill (x0.25) so stacked keys are impossible.
   if (f.keySpot) {
     const dy = Math.min(Math.max(f.pos.y, 0), MODEL_HEIGHT)
     const d = Math.sqrt(
       f.pos.x * f.pos.x + f.pos.z * f.pos.z + (f.pos.y - dy) * (f.pos.y - dy),
     )
-    const k = Math.min(Math.max((d - 0.9) / 1.3, 0), 1)
-    const feather = k * k * (3 - 2 * k)
-    f.keySpot.intensity = 0.9 + 5.1 * feather
-    if (f.fillPoint) f.fillPoint.intensity = 0.15 + 0.65 * feather
+    // frame-scoped min tracker (one-frame lag is invisible)
+    if (gafferFrame !== elapsed) {
+      gafferFrame = elapsed
+      gafferPrevMin = gafferMin
+      gafferMin = Infinity
+    }
+    if (d < gafferMin) gafferMin = d
+    const isKey = d <= gafferPrevMin + 1e-9
+    const key = Math.min(1.3 * Math.pow(d, 1.4), 6)
+    f.keySpot.intensity = isKey ? key : key * 0.25
+    if (f.fillPoint) f.fillPoint.intensity = isKey ? 0.6 : 0.15
   }
 }
+
+let gafferFrame = -1
+let gafferMin = Infinity
+let gafferPrevMin = Infinity
