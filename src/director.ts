@@ -131,6 +131,11 @@ const storyKey = new THREE.SpotLight(0xffe2c0, 0, 12, Math.PI / 5, 1, 1.2)
 const storyKeyTarget = new THREE.Object3D()
 storyKey.target = storyKeyTarget
 scene.add(storyKey, storyKeyTarget)
+// camera-mounted fill: at the closest beats the modeling key alone leaves
+// the eye region in shadow (top-rim only); a soft fill riding the camera
+// guarantees his face stays readable at any dive distance
+const storyFill = new THREE.PointLight(0xffd9b8, 0, 3.5, 1.6)
+scene.add(storyFill)
 // the blink — full-frame eyelid for the eye pass-through (see updateViewCam);
 // appended last and z-raised above the HUD so nothing paints through it
 const blinkEl = document.createElement('div')
@@ -223,6 +228,7 @@ export function updateViewCam(dt: number, elapsed: number) {
     controls.enabled = true
     blinkEl.style.opacity = '0'
     storyKey.intensity = 0
+    storyFill.intensity = 0
     setMainRigTracksEnabled(true)
     // restore the working near plane (the approach tightens it — see below)
     if (viewCam.near !== 0.05) {
@@ -274,15 +280,15 @@ export function updateViewCam(dt: number, elapsed: number) {
 
     // story key: once the approach turns intimate, light his face no matter
     // which world the deck crossfaded to (ramps 0.58 -> 0.75, holds through
-    // the blink; past the swap joe is behind the camera anyway)
+    // the blink; past the swap joe is behind the camera anyway). The fill
+    // rides the camera so the read never depends on distance.
     if (pov) {
-      storyKey.position.set(
-        pov.pos.x + 0.5,
-        pov.pos.y + 1.0,
-        pov.pos.z + 1.4,
-      )
+      storyKey.position.set(pov.pos.x + 0.35, pov.pos.y + 0.35, pov.pos.z + 1.5)
       storyKeyTarget.position.copy(pov.pos)
-      storyKey.intensity = 4 * smooth01((scrollP - 0.58) / 0.17)
+      const ramp = smooth01((scrollP - 0.58) / 0.17)
+      storyKey.intensity = 6 * ramp
+      storyFill.intensity = 2.2 * ramp
+      storyFill.position.copy(viewCam.position)
     }
 
     // quadratic bezier: entry → bow control → approach, expanded by scalars
