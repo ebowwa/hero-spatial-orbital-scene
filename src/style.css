@@ -241,8 +241,10 @@ html, body {
 .feed-track-box {
   position: absolute;
   box-sizing: border-box;
-  min-width: 10px;
-  min-height: 10px;
+  /* readable floor: a distant rig still gets a legible bracket — tracking
+     UIs draw the box with margin around the target, never a sub-pixel sliver */
+  min-width: 14px;
+  min-height: 14px;
   border: 1px solid rgba(111, 242, 255, 0.88);
   background:
     linear-gradient(var(--accent), var(--accent)) left top / 6px 1px no-repeat,
