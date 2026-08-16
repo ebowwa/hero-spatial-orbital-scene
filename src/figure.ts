@@ -48,3 +48,24 @@ export async function setupFigure(): Promise<number> {
   figure.add(root)
   return halfArmSpan
 }
+
+// ---------------------------------------------------------------------------
+// occlusion query — the one depth question DOM tracking overlays can't answer
+// themselves: is the segment from one point to another blocked by the figure?
+// Used by the OC-SORT overlays so a rig flying behind Joe drops its bracket
+// instead of painting the box over his body.
+// ---------------------------------------------------------------------------
+
+const occRay = new THREE.Raycaster()
+const occDir = new THREE.Vector3()
+
+/** true when the segment from→to intersects the figure before reaching `to` */
+export function figureOccludes(from: THREE.Vector3, to: THREE.Vector3): boolean {
+  occDir.subVectors(to, from)
+  const dist = occDir.length()
+  if (dist < 1e-4) return false
+  occRay.set(from, occDir.normalize())
+  occRay.near = 0
+  occRay.far = dist - 0.05 // hits strictly closer than the target are occluders
+  return occRay.intersectObject(figure, true).length > 0
+}

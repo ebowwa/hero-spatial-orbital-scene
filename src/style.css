@@ -218,6 +218,46 @@ html, body {
     linear-gradient(var(--accent), var(--accent)) right bottom / 2px 10px no-repeat;
   box-shadow: 0 0 12px rgba(111, 242, 255, 0.14) inset;
 }
+.rig-track-box[data-tag]::after,
+.feed-track-box[data-tag]::after {
+  content: attr(data-tag);
+  position: absolute;
+  top: -14px;
+  left: -1px;
+  font-size: 8px;
+  letter-spacing: 0.25em;
+  color: var(--accent);
+  background: rgba(2, 20, 26, 0.75);
+  padding: 2px 5px 2px 6px;
+  white-space: nowrap;
+}
+/* ---------- OC-SORT: rig brackets inside each camera feed ---------- */
+.feed-tracks {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+}
+.feed-track-box {
+  position: absolute;
+  box-sizing: border-box;
+  min-width: 10px;
+  min-height: 10px;
+  border: 1px solid rgba(111, 242, 255, 0.88);
+  background:
+    linear-gradient(var(--accent), var(--accent)) left top / 6px 1px no-repeat,
+    linear-gradient(var(--accent), var(--accent)) left top / 1px 6px no-repeat,
+    linear-gradient(var(--accent), var(--accent)) right top / 6px 1px no-repeat,
+    linear-gradient(var(--accent), var(--accent)) right top / 1px 6px no-repeat,
+    linear-gradient(var(--accent), var(--accent)) left bottom / 6px 1px no-repeat,
+    linear-gradient(var(--accent), var(--accent)) left bottom / 1px 6px no-repeat,
+    linear-gradient(var(--accent), var(--accent)) right bottom / 6px 1px no-repeat,
+    linear-gradient(var(--accent), var(--accent)) right bottom / 1px 6px no-repeat;
+}
+.feed-track-box[data-tag]::after {
+  top: 1px;
+  left: 1px;
+}
 .rig-track-trail {
   position: fixed;
   width: 5px;

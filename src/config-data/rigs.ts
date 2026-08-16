@@ -39,6 +39,7 @@ export const DEFAULT_RIGS: CameraRigDef[] = [
     lensOffset: [0, -0.03, -0.22],
     lensRadius: 0.02,
     lensColor: 0xffc36b, // DJI status-LED amber
+    tag: 'DRONE',
   },
   {
     // the Ray-Ban Meta left lens is a camera — this rig is its POV,
