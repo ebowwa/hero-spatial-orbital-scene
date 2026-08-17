@@ -212,15 +212,23 @@ export function updateViewCam(dt: number, elapsed: number) {
   if (scrollP > 0.02 && camState !== 'scroll') {
     scrollEntryPos.copy(viewCam.position)
     scrollEntryQuat.copy(viewCam.quaternion)
-    // bow control: pushed away from joe's head from the entry→approach
-    // midpoint, so the glide always arcs around him, never through him
+    // bow control: pushed away from joe in the HORIZONTAL plane only, so
+    // the glide arcs around him, never through him — and never above him.
+    // An upward-biased bow (the old setY(max(·,0.35))) lifted the camera
+    // over his head mid-approach, and looking down at the crown top — the
+    // one angle where this avatar's hair is thin — his hair visibly
+    // "fell out" at those scroll beats. Eye-level views always show the
+    // hair mass, so the whole approach stays at face height.
     if (pov) {
       const bowFwd = tmpVecA.set(0, 0, -1).applyQuaternion(pov.quat)
       const approach = tmpVecB.copy(pov.pos).addScaledVector(bowFwd, 0.85)
       scrollBowCtrl.copy(scrollEntryPos).add(approach).multiplyScalar(0.5)
-      scrollBowCtrl.sub(pov.pos).setY(Math.max(scrollBowCtrl.y, 0.35))
-      if (scrollBowCtrl.lengthSq() < 1e-6) scrollBowCtrl.set(0, 1, 0)
-      scrollBowCtrl.normalize().multiplyScalar(1.15).add(pov.pos)
+      scrollBowCtrl.sub(pov.pos)
+      scrollBowCtrl.y = 0 // bow sideways, never over the head
+      if (scrollBowCtrl.lengthSq() < 1e-6) scrollBowCtrl.set(1, 0, 0)
+      scrollBowCtrl.normalize().multiplyScalar(1.15)
+      scrollBowCtrl.y = 0.06 // a whisper of rise; effectively face height
+      scrollBowCtrl.add(pov.pos)
     }
     camState = 'scroll'
     controls.enabled = false
@@ -295,14 +303,22 @@ export function updateViewCam(dt: number, elapsed: number) {
     }
 
     // quadratic bezier: entry → bow control → approach, expanded by scalars
-    // (the two shared scratch vectors are still live: fwd feeds phase 2)
+    // (the two shared scratch vectors are still live: fwd feeds phase 2).
+    // The entry's HEIGHT is damped toward joe's eye level early in the
+    // glide — the entry can be high up the orbit, and an undamped entry
+    // kept the camera above his head mid-approach, aimed down at the thin
+    // crown top (the "bald with scroll" artifact). By t1 ≈ 0.6 the path is
+    // fully face-height regardless of where it started.
+    const entryY =
+      scrollEntryPos.y +
+      (pov.pos.y - scrollEntryPos.y) * smooth01(Math.min(t1 * 1.7, 1))
     const u = 1 - t1
     const b0 = u * u
     const b1 = 2 * u * t1
     const b2 = t1 * t1
     viewCam.position.set(
       b0 * scrollEntryPos.x + b1 * scrollBowCtrl.x + b2 * approach.x,
-      b0 * scrollEntryPos.y + b1 * scrollBowCtrl.y + b2 * approach.y,
+      b0 * entryY + b1 * scrollBowCtrl.y + b2 * approach.y,
       b0 * scrollEntryPos.z + b1 * scrollBowCtrl.z + b2 * approach.z,
     )
     viewCam.position.lerp(tmpVecB.copy(pov.pos).addScaledVector(fwd, 0.03), t2)
