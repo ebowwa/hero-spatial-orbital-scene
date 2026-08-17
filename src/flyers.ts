@@ -307,7 +307,13 @@ export async function setupFlyers() {
         }),
       )
       group.add(dot)
-      const pos = new THREE.Vector3(-0.075, MODEL_HEIGHT * 0.926, 0.15)
+      // mount at his LEFT lens, aligned with the seated glasses: figure.ts
+      // auto-centers the frames on the eyes (the export ships them ~1.8cm
+      // off-center), and this anchor — the recording dot, the glasses-feed
+      // camera, and the eye dive's target — must sit ON the corrected left
+      // lens (measured: x -0.046, y 2.2285 = 0.9285 * MODEL_HEIGHT), not
+      // at the export's original off-center spot (x -0.075).
+      const pos = new THREE.Vector3(-0.046, MODEL_HEIGHT * 0.9285, 0.15)
       const quat = new THREE.Quaternion().setFromAxisAngle(
         new THREE.Vector3(0, 1, 0),
         Math.PI, // three cameras look down -Z; he faces +Z

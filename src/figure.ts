@@ -82,6 +82,56 @@ export async function setupFigure(): Promise<number> {
   })
 
   figure.add(root)
+  root.updateMatrixWorld(true)
+
+  // seat the glasses on his eyes. The export ships the assembly ~1.8cm
+  // off-center toward one side (measured: lens-pair center x +0.018 vs eye
+  // midpoint -0.0001; hinge gems and bezels agree) — which read as "glasses
+  // yawed, right rim hanging off the head, left hinge floating at the
+  // cheek". Pure translation, no tilt or scale error (frame 0.211 vs head
+  // 0.222 wide). Centering is measured at RUNTIME — the lens-pair mesh (the
+  // widest 'glass.001' part) is moved so its center matches the eye
+  // midpoint — so a future model swap re-seats itself instead of drifting.
+  const GLASS_MATS = new Set([
+    'glass.001',
+    'High-Gloss Red Plastic.001',
+    'RAY BAN white.001',
+    'RB white.001',
+    'camera lens.001',
+  ])
+  const glasses: THREE.Mesh[] = []
+  let lensPair: THREE.Mesh | null = null
+  let lensSpan = 0
+  const eyeMid = new THREE.Vector3()
+  let eyeCount = 0
+  root.traverse((obj) => {
+    if (!(obj instanceof THREE.Mesh)) return
+    const mats = Array.isArray(obj.material) ? obj.material : [obj.material]
+    const names = mats.map((m) => (m && m.name) || '')
+    if (names.includes('Wolf3D_Eye')) {
+      eyeMid.add(new THREE.Box3().setFromObject(obj).getCenter(new THREE.Vector3()))
+      eyeCount++
+    } else if (names.some((n) => GLASS_MATS.has(n))) {
+      glasses.push(obj)
+      if (names.includes('glass.001')) {
+        const span = new THREE.Box3().setFromObject(obj).getSize(new THREE.Vector3()).x
+        if (span > lensSpan) {
+          lensSpan = span
+          lensPair = obj
+        }
+      }
+    }
+  })
+  if (glasses.length > 0 && lensPair && eyeCount >= 2) {
+    eyeMid.multiplyScalar(1 / eyeCount)
+    const lensCenter = new THREE.Box3().setFromObject(lensPair).getCenter(new THREE.Vector3())
+    const seat = new THREE.Group()
+    seat.name = 'glasses-seat'
+    figure.add(seat)
+    for (const m of glasses) seat.attach(m) // preserves world transforms
+    seat.position.set(eyeMid.x - lensCenter.x, eyeMid.y - lensCenter.y, 0)
+  }
+
   return halfArmSpan
 }
 
