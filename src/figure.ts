@@ -9,6 +9,18 @@ import { loadGlb } from './loading.ts'
 const figure = new THREE.Group()
 scene.add(figure)
 
+// the sunglass lens materials (collected at load; see setupFigure) and the
+// opacity they wear at rest — dark Ray-Bans. The eye dive fades them clear
+// through setGlassesLensOpacity() and restores this on the way out.
+const lensMaterials: THREE.MeshStandardMaterial[] = []
+const GLASS_LENS_OPACITY = 0.92
+
+/** fade the sunglass lenses (1 = dark, 0 = fully clear) */
+export function setGlassesLensOpacity(opacity: number) {
+  const o = Math.min(Math.max(opacity, 0), 1)
+  for (const m of lensMaterials) m.opacity = o
+}
+
 export async function setupFigure(): Promise<number> {
   const gltf = await loadGlb('/assets/person.glb')
   const root = gltf.scene
@@ -46,15 +58,21 @@ export async function setupFigure(): Promise<number> {
             mat.emissiveMap = null
           }
           mat.envMapIntensity = 0.45
-          // his glasses ship with OPAQUE lens materials — the scroll story's
-          // eye dive ends centimeters behind that lens, so an opaque sheet
-          // filled the frame where his face should be (read as a missing
-          // head). Real lenses are see-through; make them translucent and
-          // keep them out of the depth write so they never occlude the eye.
-          if (/glass|lens/i.test(mat.name)) {
+          // the SUNGLASS lenses (material 'glass.001') ship as opaque light
+          // gray. They must read as dark Ray-Bans normally — but the scroll
+          // story's eye dive passes through the left lens, so they need to
+          // fade clear at the closest beats. Keep them transparent-capable
+          // with depth write ON (depthWrite:false made the lenses draw over
+          // the face/silhouette where they should be occluded), and expose a
+          // runtime opacity knob for the director. NOTE: 'camera lens.001'
+          // (the four camera bezels on the Meta frames) also matches a naive
+          // /lens/ test — those are physical housings and stay opaque.
+          if (/glass/i.test(mat.name) && !/camera/i.test(mat.name)) {
             mat.transparent = true
-            mat.opacity = Math.min(mat.opacity, 0.16)
-            mat.depthWrite = false
+            mat.depthWrite = true
+            mat.color.setRGB(0.1, 0.13, 0.13) // near-black with a green hint
+            mat.opacity = GLASS_LENS_OPACITY
+            if (!lensMaterials.includes(mat)) lensMaterials.push(mat)
           }
         }
       }
