@@ -100,6 +100,7 @@ export async function setupFigure(): Promise<number> {
     'camera lens.001',
   ])
   const glasses: THREE.Mesh[] = []
+  const glassesSet = new Set<THREE.Mesh>()
   let lensPair: THREE.Mesh | null = null
   let lensSpan = 0
   const eyeMid = new THREE.Vector3()
@@ -113,6 +114,7 @@ export async function setupFigure(): Promise<number> {
       eyeCount++
     } else if (names.some((n) => GLASS_MATS.has(n))) {
       glasses.push(obj)
+      glassesSet.add(obj)
       if (names.includes('glass.001')) {
         const span = new THREE.Box3().setFromObject(obj).getSize(new THREE.Vector3()).x
         if (span > lensSpan) {
@@ -123,6 +125,29 @@ export async function setupFigure(): Promise<number> {
     }
   })
   if (glasses.length > 0 && lensPair && eyeCount >= 2) {
+    // the material list is not the whole assembly: the frames also carry
+    // parts on other materials (the SVGMat curve meshes — brow bar, rims)
+    // that must move WITH the seat or they float at the old offset beside
+    // the re-centered lenses. Sweep for any non-body mesh (body = Wolf3D_*
+    // skin/hair/teeth/outfit — the avatar's own parts) whose center lies
+    // within the known assembly's bounds padded 3.5cm: that region at eye
+    // height in front of the face is glasses and nothing else.
+    const assemblyBox = new THREE.Box3()
+    for (const m of glasses) assemblyBox.expandByObject(m)
+    assemblyBox.expandByScalar(0.035)
+    const sweep = new THREE.Vector3()
+    root.traverse((obj) => {
+      if (!(obj instanceof THREE.Mesh) || glassesSet.has(obj)) return
+      const mats = Array.isArray(obj.material) ? obj.material : [obj.material]
+      if (mats.some((m) => m && /^Wolf3D_/.test(m.name ?? ''))) return // his body, never glasses
+      const box = new THREE.Box3().setFromObject(obj)
+      if (box.isEmpty()) return
+      box.getCenter(sweep)
+      if (assemblyBox.containsPoint(sweep)) {
+        glasses.push(obj)
+        glassesSet.add(obj)
+      }
+    })
     eyeMid.multiplyScalar(1 / eyeCount)
     const lensCenter = new THREE.Box3().setFromObject(lensPair).getCenter(new THREE.Vector3())
     const seat = new THREE.Group()
@@ -130,6 +155,11 @@ export async function setupFigure(): Promise<number> {
     figure.add(seat)
     for (const m of glasses) seat.attach(m) // preserves world transforms
     seat.position.set(eyeMid.x - lensCenter.x, eyeMid.y - lensCenter.y, 0)
+    // diagnostics: what the seat captured (devtools: __glassesSeat)
+    ;(window as unknown as { __glassesSeat?: unknown }).__glassesSeat = {
+      moved: glasses.map((m) => m.name || `mesh${m.id}`),
+      offset: [eyeMid.x - lensCenter.x, eyeMid.y - lensCenter.y, 0],
+    }
   }
 
   return halfArmSpan
