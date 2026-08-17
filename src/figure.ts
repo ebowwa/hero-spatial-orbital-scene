@@ -13,7 +13,9 @@ scene.add(figure)
 // opacity they wear at rest — dark Ray-Bans. The eye dive fades them clear
 // through setGlassesLensOpacity() and restores this on the way out.
 const lensMaterials: THREE.MeshStandardMaterial[] = []
-const GLASS_LENS_OPACITY = 0.92
+/** rest opacity — dark sunglasses; the dive fades toward clear through
+ *  setGlassesLensOpacity (see director.ts) */
+export const GLASS_LENS_OPACITY = 0.97
 
 /** fade the sunglass lenses (1 = dark, 0 = fully clear) */
 export function setGlassesLensOpacity(opacity: number) {

@@ -3,7 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { scene, viewCam, canvas, tmpMat, tmpQuat, tmpVecA, tmpVecB, MODEL_HEIGHT } from './engine.ts'
 import { flyers , layoutFeeds, setMainRigTracksEnabled } from './flyers.ts'
 import { setDeckVisibility } from './deck.ts'
-import { setGlassesLensOpacity } from './figure.ts'
+import { setGlassesLensOpacity, GLASS_LENS_OPACITY } from './figure.ts'
 import { embedConfig, isEditableTarget } from './embed.ts'
 
 // ---------------------------------------------------------------------------
@@ -238,7 +238,7 @@ export function updateViewCam(dt: number, elapsed: number) {
     blinkEl.style.opacity = '0'
     storyKey.intensity = 0
     storyFill.intensity = 0
-    setGlassesLensOpacity(0.92) // dark ray-bans again
+    setGlassesLensOpacity(GLASS_LENS_OPACITY) // dark ray-bans again
     setMainRigTracksEnabled(true)
     // restore the working near plane (the approach tightens it — see below)
     if (viewCam.near !== 0.05) {
@@ -291,7 +291,7 @@ export function updateViewCam(dt: number, elapsed: number) {
     // the sunglass lenses fade clear only for the final pass-through-the-eye
     // beats — dark Ray-Bans everywhere else in the story (and restored by
     // this same ramp when the user scrolls back)
-    setGlassesLensOpacity(0.92 - 0.88 * smooth01((t2 - 0.78) / 0.17))
+    setGlassesLensOpacity(GLASS_LENS_OPACITY - 0.9 * smooth01((t2 - 0.78) / 0.17))
 
     // story key: once the approach turns intimate, light his face no matter
     // which world the deck crossfaded to (ramps 0.58 -> 0.75, holds through
