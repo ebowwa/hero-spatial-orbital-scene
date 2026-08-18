@@ -191,9 +191,9 @@ export function buildVoidLike(p: VoidPalette): BuiltEnvironment {
     // pillars render everywhere — the teal 0x2fbfae was simply too close
     // to the dome's own horizon gradient to separate. #6ff2ff is the
     // HUD accent family and pops against the void at any angle.
-    color: 0x6ff2ff,
+    color: 0xd8fbff,
     transparent: true,
-    opacity: 0.6,
+    opacity: 0.85,
     blending: THREE.NormalBlending, // NOT additive: additive teal-on-teal
     // dome vanished them; normal blending reads as lit columns against
     // the darker void, which is the whole point of a depth cue
