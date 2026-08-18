@@ -157,41 +157,29 @@ export function buildVoidLike(p: VoidPalette): BuiltEnvironment {
   disc.position.y = 0.005
   group.add(disc)
 
-  // ---- the scan stage: a crisp boundary ring + radial ticks around the
-  // glow disc. Without an edge the disc read as spilled light and Joe
-  // floated in an undefined void; the hard edge converts it into a
-  // designed platform and gives every wide shot a ground line. Pure
+  // ---- the scan stage: a DASHED boundary ring around the glow disc.
+  // Without an edge the disc read as spilled light and Joe floated in an
+  // undefined void. First pass used a solid ring + 24 separate tick boxes,
+  // but at any camera angle the ticks projected onto the ring line itself
+  // (invisible as separate elements) — so the tick idea is merged INTO the
+  // ring: 24 arc segments with gaps, one material, always legible. Pure
   // primitives (design: Qwen art-direction pass, 2026-08-17). ----
-  const ring = new THREE.Mesh(
-    new THREE.RingGeometry(3.3, 3.38, 96),
-    new THREE.MeshBasicMaterial({
-      color: 0x3ee6d8,
-      transparent: true,
-      opacity: 0.4,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    }),
-  )
-  ring.rotation.x = -Math.PI / 2
-  ring.position.y = 0.02
-  group.add(ring)
-
-  // 24 tick marks (thin boxes laid flat) just outside the ring, every 15°;
-  // quiet enough to read as instrument staging, not ornament
-  const tickMat = new THREE.MeshBasicMaterial({
-    color: 0x2dd4bf,
+  const ringMat = new THREE.MeshBasicMaterial({
+    color: 0x3ee6d8,
     transparent: true,
     opacity: 0.55,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   })
-  const tickGeo = new THREE.BoxGeometry(0.035, 0.006, 0.22)
-  for (let i = 0; i < 24; i++) {
-    const a = (i / 24) * Math.PI * 2
-    const tick = new THREE.Mesh(tickGeo, tickMat)
-    tick.position.set(Math.sin(a) * 3.52, 0.02, Math.cos(a) * 3.52)
-    tick.rotation.y = a
-    group.add(tick)
+  const SEGMENTS = 24
+  const DASH = 0.62 // fraction of each slot the arc fills
+  for (let i = 0; i < SEGMENTS; i++) {
+    const a0 = (i / SEGMENTS) * Math.PI * 2
+    const a1 = a0 + (Math.PI * 2 / SEGMENTS) * DASH
+    const arc = new THREE.Mesh(new THREE.RingGeometry(3.3, 3.42, 10, 1, a0, a1 - a0), ringMat)
+    arc.rotation.x = -Math.PI / 2
+    arc.position.y = 0.02
+    group.add(arc)
   }
 
   // ---- distant vertical light pillars: scale + parallax for the dolly.
@@ -207,8 +195,8 @@ export function buildVoidLike(p: VoidPalette): BuiltEnvironment {
   })
   const pillarGeo = new THREE.BoxGeometry(0.09, 9, 0.09)
   const pillarSpecs: [angleDeg: number, radius: number][] = [
-    [150, 17], [118, 21], [86, 19],
-    [-70, 23], [-105, 17.5], [-140, 20],
+    [150, 11], [118, 13.5], [86, 12],
+    [-70, 14], [-105, 11.5], [-140, 12.5],
   ]
   for (const [deg, radius] of pillarSpecs) {
     const a = (deg * Math.PI) / 180
