@@ -167,7 +167,7 @@ export function buildVoidLike(p: VoidPalette): BuiltEnvironment {
   const ringMat = new THREE.MeshBasicMaterial({
     color: 0x3ee6d8,
     transparent: true,
-    opacity: 0.55,
+    opacity: 0.85,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   })
@@ -189,7 +189,7 @@ export function buildVoidLike(p: VoidPalette): BuiltEnvironment {
   const pillarMat = new THREE.MeshBasicMaterial({
     color: 0x14a093,
     transparent: true,
-    opacity: 0.35,
+    opacity: 0.55,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   })
