@@ -187,10 +187,12 @@ export function buildVoidLike(p: VoidPalette): BuiltEnvironment {
   // him at irregular angles — space continues, not a colonnade. Kept off
   // the +x side where the feed panels sit so they never clutter the UI. ----
   const pillarMat = new THREE.MeshBasicMaterial({
-    color: 0x14a093,
+    color: 0x2fbfae,
     transparent: true,
-    opacity: 0.55,
-    blending: THREE.AdditiveBlending,
+    opacity: 0.5,
+    blending: THREE.NormalBlending, // NOT additive: additive teal-on-teal
+    // dome vanished them; normal blending reads as lit columns against
+    // the darker void, which is the whole point of a depth cue
     depthWrite: false,
   })
   const pillarGeo = new THREE.BoxGeometry(0.09, 9, 0.09)
