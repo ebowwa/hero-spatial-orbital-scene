@@ -181,11 +181,11 @@ export function buildVoidLike(p: VoidPalette): BuiltEnvironment {
   const tickMat = new THREE.MeshBasicMaterial({
     color: 0x2dd4bf,
     transparent: true,
-    opacity: 0.22,
+    opacity: 0.55,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   })
-  const tickGeo = new THREE.BoxGeometry(0.02, 0.005, 0.16)
+  const tickGeo = new THREE.BoxGeometry(0.035, 0.006, 0.22)
   for (let i = 0; i < 24; i++) {
     const a = (i / 24) * Math.PI * 2
     const tick = new THREE.Mesh(tickGeo, tickMat)
@@ -201,11 +201,11 @@ export function buildVoidLike(p: VoidPalette): BuiltEnvironment {
   const pillarMat = new THREE.MeshBasicMaterial({
     color: 0x14a093,
     transparent: true,
-    opacity: 0.15,
+    opacity: 0.35,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   })
-  const pillarGeo = new THREE.BoxGeometry(0.04, 8, 0.04)
+  const pillarGeo = new THREE.BoxGeometry(0.09, 9, 0.09)
   const pillarSpecs: [angleDeg: number, radius: number][] = [
     [150, 17], [118, 21], [86, 19],
     [-70, 23], [-105, 17.5], [-140, 20],
