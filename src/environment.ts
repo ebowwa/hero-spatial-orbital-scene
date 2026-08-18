@@ -201,7 +201,7 @@ export function buildVoidLike(p: VoidPalette): BuiltEnvironment {
     // scene fog ate 40%+ of them at 11-14m, which is why they never showed
     depthWrite: false,
   })
-  const pillarGeo = new THREE.BoxGeometry(0.09, 9, 0.09)
+  const pillarGeo = new THREE.BoxGeometry(0.35, 9, 0.35)
   const pillarSpecs: [angleDeg: number, radius: number][] = [
     [150, 11], [118, 13.5], [86, 12],
     [-70, 14], [-105, 11.5], [-140, 12.5],
