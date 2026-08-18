@@ -189,10 +189,12 @@ export function buildVoidLike(p: VoidPalette): BuiltEnvironment {
   const pillarMat = new THREE.MeshBasicMaterial({
     color: 0x2fbfae,
     transparent: true,
-    opacity: 0.5,
+    opacity: 0.55,
     blending: THREE.NormalBlending, // NOT additive: additive teal-on-teal
     // dome vanished them; normal blending reads as lit columns against
     // the darker void, which is the whole point of a depth cue
+    fog: false, // they are light SOURCES like the dome (also fog:false) —
+    // scene fog ate 40%+ of them at 11-14m, which is why they never showed
     depthWrite: false,
   })
   const pillarGeo = new THREE.BoxGeometry(0.09, 9, 0.09)
