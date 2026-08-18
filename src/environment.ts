@@ -187,9 +187,13 @@ export function buildVoidLike(p: VoidPalette): BuiltEnvironment {
   // him at irregular angles — space continues, not a colonnade. Kept off
   // the +x side where the feed panels sit so they never clutter the UI. ----
   const pillarMat = new THREE.MeshBasicMaterial({
-    color: 0x2fbfae,
+    // the ACCENT cyan, not mid-teal: the red-pillar A/B test proved the
+    // pillars render everywhere — the teal 0x2fbfae was simply too close
+    // to the dome's own horizon gradient to separate. #6ff2ff is the
+    // HUD accent family and pops against the void at any angle.
+    color: 0x6ff2ff,
     transparent: true,
-    opacity: 0.55,
+    opacity: 0.6,
     blending: THREE.NormalBlending, // NOT additive: additive teal-on-teal
     // dome vanished them; normal blending reads as lit columns against
     // the darker void, which is the whole point of a depth cue
