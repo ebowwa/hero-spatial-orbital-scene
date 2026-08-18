@@ -157,6 +157,66 @@ export function buildVoidLike(p: VoidPalette): BuiltEnvironment {
   disc.position.y = 0.005
   group.add(disc)
 
+  // ---- the scan stage: a crisp boundary ring + radial ticks around the
+  // glow disc. Without an edge the disc read as spilled light and Joe
+  // floated in an undefined void; the hard edge converts it into a
+  // designed platform and gives every wide shot a ground line. Pure
+  // primitives (design: Qwen art-direction pass, 2026-08-17). ----
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(3.3, 3.38, 96),
+    new THREE.MeshBasicMaterial({
+      color: 0x3ee6d8,
+      transparent: true,
+      opacity: 0.4,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    }),
+  )
+  ring.rotation.x = -Math.PI / 2
+  ring.position.y = 0.02
+  group.add(ring)
+
+  // 24 tick marks (thin boxes laid flat) just outside the ring, every 15°;
+  // quiet enough to read as instrument staging, not ornament
+  const tickMat = new THREE.MeshBasicMaterial({
+    color: 0x2dd4bf,
+    transparent: true,
+    opacity: 0.22,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  })
+  const tickGeo = new THREE.BoxGeometry(0.02, 0.005, 0.16)
+  for (let i = 0; i < 24; i++) {
+    const a = (i / 24) * Math.PI * 2
+    const tick = new THREE.Mesh(tickGeo, tickMat)
+    tick.position.set(Math.sin(a) * 3.52, 0.02, Math.cos(a) * 3.52)
+    tick.rotation.y = a
+    group.add(tick)
+  }
+
+  // ---- distant vertical light pillars: scale + parallax for the dolly.
+  // Six thin additive boxes (~3.3x joe's height) scattered 16-24m behind
+  // him at irregular angles — space continues, not a colonnade. Kept off
+  // the +x side where the feed panels sit so they never clutter the UI. ----
+  const pillarMat = new THREE.MeshBasicMaterial({
+    color: 0x14a093,
+    transparent: true,
+    opacity: 0.15,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  })
+  const pillarGeo = new THREE.BoxGeometry(0.04, 8, 0.04)
+  const pillarSpecs: [angleDeg: number, radius: number][] = [
+    [150, 17], [118, 21], [86, 19],
+    [-70, 23], [-105, 17.5], [-140, 20],
+  ]
+  for (const [deg, radius] of pillarSpecs) {
+    const a = (deg * Math.PI) / 180
+    const pillar = new THREE.Mesh(pillarGeo, pillarMat)
+    pillar.position.set(Math.sin(a) * radius, 4, Math.cos(a) * radius)
+    group.add(pillar)
+  }
+
   group.add(new THREE.AmbientLight(p.ambient[0], p.ambient[1]))
   const rim = new THREE.DirectionalLight(p.rim[0], p.rim[1])
   rim.position.set(-4, 6, -5)
