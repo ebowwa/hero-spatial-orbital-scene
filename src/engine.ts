@@ -74,7 +74,9 @@ composer.addPass(new OutputPass())
 // updateFlyer finishes before updateViewCam runs each frame (no reentrancy).
 // ---------------------------------------------------------------------------
 
-export const clock = new THREE.Clock()
+// THREE.Timer replaces deprecated THREE.Clock (r182+). Callers MUST call
+// clock.update() once per frame before getDelta()/getElapsedTime().
+export const clock = new THREE.Timer()
 export const tmpMat = new THREE.Matrix4()
 export const tmpQuat = new THREE.Quaternion()
 export const tmpVecA = new THREE.Vector3()
