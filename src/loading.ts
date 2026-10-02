@@ -1,6 +1,9 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js'
+// Hero GLBs are meshopt-compressed (9.25MB → 1.57MB); the loader needs the
+// decoder wired or compressed models silently fail to parse.
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import { embedConfig } from './embed.ts'
 
 // ---------------------------------------------------------------------------
@@ -59,6 +62,7 @@ const manager = new THREE.LoadingManager()
 manager.onProgress = paintProgress // item completions refresh too
 
 const gltfLoader = new GLTFLoader(manager)
+gltfLoader.setMeshoptDecoder(MeshoptDecoder)
 
 export function loadGlb(url: string): Promise<GLTF> {
   // hosts mounting under a sub-path (or off a CDN) set assetBase via

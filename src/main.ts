@@ -115,8 +115,9 @@ async function boot() {
 
   let feedAccum = 0
   frame = () => {
+    clock.update()
     const dt = Math.min(clock.getDelta(), 0.05)
-    const elapsed = clock.elapsedTime
+    const elapsed = clock.getElapsed()
     for (const f of flyers) updateFlyer(f, elapsed)
     updateEnvironment(dt)
     updateViewCam(dt, elapsed)

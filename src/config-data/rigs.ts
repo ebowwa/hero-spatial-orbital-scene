@@ -31,7 +31,7 @@ export const DEFAULT_RIGS: CameraRigDef[] = [
   },
   {
     id: 'dji-mini-3-pro',
-    label: "Tom's Drone",
+    label: "DJI Mini 3 Pro",
     url: '/assets/dji_3_mini_pro.glb',
     size: 0.45,
     // model's gimbal sits on +Z — flip so it faces the drone's -Z look dir
@@ -45,7 +45,7 @@ export const DEFAULT_RIGS: CameraRigDef[] = [
     // the Ray-Ban Meta left lens is a camera — this rig is its POV,
     // mounted on the figure's face instead of flying a path
     id: 'glasses-cam',
-    label: 'Joe\'s Glasses',
+    label: 'Ray-Ban Meta',
     url: '',
     size: 0,
     virtual: true,
